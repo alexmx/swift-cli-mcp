@@ -124,6 +124,10 @@ public struct MCPProperty: Sendable {
         MCPProperty(type: "boolean", description: description)
     }
 
+    public static func number(_ description: String) -> MCPProperty {
+        MCPProperty(type: "number", description: description)
+    }
+
     func toDict() -> [String: Any] {
         ["type": type, "description": description]
     }
