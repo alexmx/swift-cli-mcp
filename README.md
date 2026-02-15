@@ -250,4 +250,4 @@ print(server.tools.count) // Number of tools
 
 ## License
 
-[Add your license here]
+MIT License - see [LICENSE](LICENSE) file for details.
