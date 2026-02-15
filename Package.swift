@@ -6,7 +6,7 @@ let package = Package(
     name: "swift-cli-mcp",
     platforms: [.macOS(.v15)],
     products: [
-        .library(name: "SwiftCliMcp", targets: ["SwiftCliMcp"]),
+        .library(name: "SwiftMCP", targets: ["SwiftMCP"]),
         .executable(name: "test-server", targets: ["TestServer"])
     ],
     dependencies: [
@@ -14,7 +14,7 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "SwiftCliMcp",
+            name: "SwiftMCP",
             dependencies: [
                 .product(name: "Atomics", package: "swift-atomics")
             ],
@@ -22,12 +22,12 @@ let package = Package(
         ),
         .executableTarget(
             name: "TestServer",
-            dependencies: ["SwiftCliMcp"],
+            dependencies: ["SwiftMCP"],
             path: "Sources/TestServer"
         ),
         .testTarget(
             name: "SwiftCliMcpTests",
-            dependencies: ["SwiftCliMcp"]
+            dependencies: ["SwiftMCP"]
         )
     ]
 )

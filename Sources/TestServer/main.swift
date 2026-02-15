@@ -1,5 +1,5 @@
 import Foundation
-import SwiftCliMcp
+import SwiftMCP
 
 // MARK: - Typed Arguments
 

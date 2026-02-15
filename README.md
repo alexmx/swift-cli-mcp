@@ -23,7 +23,7 @@ dependencies: [
 ## Quick Start
 
 ```swift
-import SwiftCliMcp
+import SwiftMCP
 
 struct EchoArgs: Codable {
     let message: String

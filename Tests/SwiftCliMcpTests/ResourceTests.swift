@@ -1,5 +1,5 @@
 import Foundation
-@testable import SwiftCliMcp
+@testable import SwiftMCP
 import Testing
 
 @Suite("Resources")
