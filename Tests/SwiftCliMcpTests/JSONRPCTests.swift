@@ -1,10 +1,9 @@
-import Testing
 import Foundation
 @testable import SwiftCliMcp
+import Testing
 
 @Suite("JSON-RPC Parsing and Response")
 struct JSONRPCTests {
-
     // MARK: - Parsing Tests
 
     @Test("Parse valid request")

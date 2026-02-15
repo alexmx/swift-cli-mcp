@@ -25,8 +25,8 @@ public enum MCPContent: Sendable {
 
 /// Result returned by tool handlers.
 public enum MCPToolResult: Sendable {
-    case text(String)           // Convenience for single text response
-    case content([MCPContent])  // Advanced: multiple content blocks
+    case text(String) // Convenience for single text response
+    case content([MCPContent]) // Advanced: multiple content blocks
 
     var contentArray: [[String: Any]] {
         switch self {
@@ -99,7 +99,7 @@ public struct MCPTool: Sendable {
         return [
             "name": name,
             "description": description,
-            "inputSchema": inputSchema.toDict(),
+            "inputSchema": inputSchema.toDict()
         ]
     }
 }
@@ -189,7 +189,7 @@ public struct MCPResource: Sendable {
     func definition() -> [String: Any] {
         var dict: [String: Any] = [
             "uri": uri,
-            "name": name,
+            "name": name
         ]
         if let description { dict["description"] = description }
         if let mimeType { dict["mimeType"] = mimeType }

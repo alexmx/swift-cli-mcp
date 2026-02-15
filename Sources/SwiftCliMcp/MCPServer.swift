@@ -1,5 +1,5 @@
-import Foundation
 import Atomics
+import Foundation
 
 /// A reusable MCP server that communicates via JSON-RPC 2.0 over stdio.
 ///
@@ -22,7 +22,7 @@ public struct MCPServer: Sendable {
     private let resourcesByUri: [String: MCPResource]
     private let logHandler: (@Sendable (String) -> Void)?
 
-    // Atomic shutdown flag for signal handling
+    /// Atomic shutdown flag for signal handling
     private static let shouldShutdown = ManagedAtomic<Bool>(false)
 
     public init(
@@ -129,7 +129,11 @@ public struct MCPServer: Sendable {
         case "ping":
             return JSONRPCResponse.success(id: id, result: [:] as [String: Any])
         default:
-            return JSONRPCResponse.error(id: id, code: MCPConstants.methodNotFound, message: "Method not found: \(request.method)")
+            return JSONRPCResponse.error(
+                id: id,
+                code: MCPConstants.methodNotFound,
+                message: "Method not found: \(request.method)"
+            )
         }
     }
 
@@ -156,7 +160,7 @@ public struct MCPServer: Sendable {
                 var info: [String: Any] = ["name": name, "version": version]
                 if let description { info["description"] = description }
                 return info
-            }() as [String: Any],
+            }() as [String: Any]
         ]
         return JSONRPCResponse.success(id: id, result: result)
     }
@@ -182,15 +186,15 @@ public struct MCPServer: Sendable {
             let toolResult = try await tool.handler(arguments)
             let result: [String: Any] = [
                 "content": toolResult.contentArray,
-                "isError": false,
+                "isError": false
             ]
             return JSONRPCResponse.success(id: id, result: result)
         } catch {
             let result: [String: Any] = [
                 "content": [
-                    ["type": "text", "text": String(describing: error)] as [String: Any],
+                    ["type": "text", "text": String(describing: error)] as [String: Any]
                 ],
-                "isError": true,
+                "isError": true
             ]
             return JSONRPCResponse.success(id: id, result: result)
         }
@@ -223,11 +227,15 @@ public struct MCPServer: Sendable {
         do {
             let contents = try await resource.handler()
             let result: [String: Any] = [
-                "contents": [contents.toDict()],
+                "contents": [contents.toDict()]
             ]
             return JSONRPCResponse.success(id: id, result: result)
         } catch {
-            return JSONRPCResponse.error(id: id, code: MCPConstants.internalError, message: "Resource error: \(String(describing: error))")
+            return JSONRPCResponse.error(
+                id: id,
+                code: MCPConstants.internalError,
+                message: "Resource error: \(String(describing: error))"
+            )
         }
     }
 
@@ -241,11 +249,11 @@ public struct MCPServer: Sendable {
             "params": {
                 var params: [String: Any] = [
                     "level": level.rawValue,
-                    "data": message,
+                    "data": message
                 ]
                 if let logger { params["logger"] = logger }
                 return params
-            }() as [String: Any],
+            }() as [String: Any]
         ]
 
         if let data = try? JSONSerialization.data(withJSONObject: notification) {

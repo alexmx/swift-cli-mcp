@@ -72,7 +72,7 @@ let server = MCPServer(
             }
 
             return .text("Result: \(args.a / args.b)")
-        },
+        }
 
     ],
     resources: [
@@ -85,7 +85,7 @@ let server = MCPServer(
         ) {
             let content = """
             # Test MCP Server
-
+            
             This is a test server demonstrating all MCP features:
             - Tools (echo, generate_report, divide, slow_task)
             - Resources (this README, system info)

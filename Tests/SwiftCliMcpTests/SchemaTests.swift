@@ -1,10 +1,9 @@
-import Testing
 import Foundation
 @testable import SwiftCliMcp
+import Testing
 
 @Suite("Schema and Tool")
 struct SchemaTests {
-
     // MARK: - Typed Schema Tests
 
     @Test("Empty schema")

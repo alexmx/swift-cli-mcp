@@ -1,10 +1,9 @@
-import Testing
 import Foundation
 @testable import SwiftCliMcp
+import Testing
 
 @Suite("Resources")
 struct ResourceTests {
-
     @Test("Resource definition")
     func resourceDefinition() {
         let resource = MCPResource(

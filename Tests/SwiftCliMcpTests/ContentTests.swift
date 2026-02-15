@@ -1,10 +1,9 @@
-import Testing
 import Foundation
 @testable import SwiftCliMcp
+import Testing
 
 @Suite("Content Types")
 struct ContentTests {
-
     @Test("Text content encoding")
     func textContent() {
         let content = MCPContent.text("Hello, world!")

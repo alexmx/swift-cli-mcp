@@ -1,10 +1,9 @@
-import Testing
 import Foundation
 @testable import SwiftCliMcp
+import Testing
 
 @Suite("MCP Server")
 struct ServerTests {
-
     @Test("Server initialization")
     func serverInit() {
         struct EmptyArgs: Codable {}

@@ -15,19 +15,19 @@ struct AnyCodable: Codable, @unchecked Sendable {
         let container = try decoder.singleValueContainer()
 
         if container.decodeNil() {
-            value = NSNull()
+            self.value = NSNull()
         } else if let bool = try? container.decode(Bool.self) {
-            value = bool
+            self.value = bool
         } else if let int = try? container.decode(Int.self) {
-            value = int
+            self.value = int
         } else if let double = try? container.decode(Double.self) {
-            value = double
+            self.value = double
         } else if let string = try? container.decode(String.self) {
-            value = string
+            self.value = string
         } else if let array = try? container.decode([AnyCodable].self) {
-            value = array.map { $0.value }
+            self.value = array.map { $0.value }
         } else if let dictionary = try? container.decode([String: AnyCodable].self) {
-            value = dictionary.mapValues { $0.value }
+            self.value = dictionary.mapValues { $0.value }
         } else {
             throw DecodingError.dataCorruptedError(
                 in: container,
@@ -103,7 +103,9 @@ struct JSONRPCRequest: Codable, Sendable {
     let method: String
     let params: AnyCodable?
 
-    var isNotification: Bool { id == nil }
+    var isNotification: Bool {
+        id == nil
+    }
 
     var paramsDict: [String: Any] {
         params?.value as? [String: Any] ?? [:]
