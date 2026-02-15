@@ -14,11 +14,13 @@ import Foundation
 public struct MCPServer: Sendable {
     let name: String
     let version: String
+    let description: String?
     let tools: [MCPTool]
 
-    public init(name: String, version: String, tools: [MCPTool]) {
+    public init(name: String, version: String, description: String? = nil, tools: [MCPTool]) {
         self.name = name
         self.version = version
+        self.description = description
         self.tools = tools
     }
 
@@ -79,10 +81,11 @@ public struct MCPServer: Sendable {
                     "listChanged": false,
                 ] as [String: Any],
             ] as [String: Any],
-            "serverInfo": [
-                "name": name,
-                "version": version,
-            ] as [String: Any],
+            "serverInfo": {
+                var info: [String: Any] = ["name": name, "version": version]
+                if let description { info["description"] = description }
+                return info
+            }() as [String: Any],
         ]
         return JSONRPCResponse.success(id: id, result: result)
     }
