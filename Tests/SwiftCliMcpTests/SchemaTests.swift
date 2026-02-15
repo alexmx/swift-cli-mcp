@@ -92,8 +92,12 @@ struct SchemaTests {
 
     // MARK: - Tool Tests
 
-    @Test("Tool with typed schema")
-    func toolWithTypedSchema() {
+    @Test("Tool definition")
+    func toolDefinition() {
+        struct TestArgs: Codable {
+            let input: String
+        }
+
         let tool = MCPTool(
             name: "test",
             description: "Test tool",
@@ -101,7 +105,7 @@ struct SchemaTests {
                 properties: ["input": .string("Input value")],
                 required: ["input"]
             )
-        ) { _ in .text("result") }
+        ) { (args: TestArgs) in .text("result") }
 
         let def = tool.definition()
         #expect(def["name"] as? String == "test")
@@ -114,65 +118,139 @@ struct SchemaTests {
         #expect(props?["input"]?["type"] as? String == "string")
     }
 
-    @Test("Tool with string schema (legacy)")
-    func toolWithStringSchema() {
-        let schemaJSON = """
-        {
-            "properties": {
-                "name": {"type": "string", "description": "Name"}
-            },
-            "required": ["name"],
-            "additionalProperties": false
+    // MARK: - Typed Arguments Tests
+
+    @Test("Tool with typed Codable arguments")
+    func toolWithTypedArguments() async throws {
+        struct GreetArgs: Codable {
+            let name: String
+            let age: Int?
         }
-        """
 
         let tool = MCPTool(
-            name: "legacy",
-            description: "Legacy tool",
-            schema: schemaJSON
-        ) { _ in .text("ok") }
+            name: "greet",
+            description: "Greet user",
+            schema: MCPSchema(
+                properties: [
+                    "name": .string("User's name"),
+                    "age": .integer("User's age")
+                ],
+                required: ["name"]
+            )
+        ) { (args: GreetArgs) in
+            let ageStr = args.age.map { " age \($0)" } ?? ""
+            return .text("Hello \(args.name)\(ageStr)")
+        }
 
-        let def = tool.definition()
-        let schema = def["inputSchema"] as? [String: Any]
+        // Test with all fields
+        let result1 = try await tool.handler(["name": "Alice", "age": 30])
+        guard case .text(let text1) = result1 else {
+            Issue.record("Expected text result")
+            return
+        }
+        #expect(text1 == "Hello Alice age 30")
 
-        // Should preserve all fields including additionalProperties
-        #expect(schema?["additionalProperties"] as? Bool == false)
-        #expect(schema?["type"] as? String == "object")
-
-        let props = schema?["properties"] as? [String: [String: Any]]
-        #expect(props?["name"]?["type"] as? String == "string")
+        // Test with optional field missing
+        let result2 = try await tool.handler(["name": "Bob"])
+        guard case .text(let text2) = result2 else {
+            Issue.record("Expected text result")
+            return
+        }
+        #expect(text2 == "Hello Bob")
     }
 
-    @Test("Tool with invalid string schema")
-    func toolWithInvalidStringSchema() {
+    @Test("Typed tool validates argument types")
+    func typedToolValidation() async throws {
+        struct StrictArgs: Codable {
+            let count: Int
+        }
+
         let tool = MCPTool(
-            name: "invalid",
-            description: "Invalid schema",
-            schema: "not json"
-        ) { _ in .text("ok") }
+            name: "count",
+            description: "Count",
+            schema: MCPSchema(
+                properties: ["count": .integer("Count")],
+                required: ["count"]
+            )
+        ) { (args: StrictArgs) in
+            return .text("Count: \(args.count)")
+        }
 
-        let def = tool.definition()
-        let schema = def["inputSchema"] as? [String: Any]
-
-        // Should fallback to minimal schema
-        #expect(schema?["type"] as? String == "object")
-    }
-
-    @Test("Tool handler - string convenience init")
-    func toolStringHandler() async throws {
-        let tool = MCPTool(
-            name: "echo",
-            description: "Echo",
-            stringHandler: { args in
-                return args["msg"] as? String ?? "empty"
-            }
-        )
-
-        let result = try await tool.handler(["msg": "hello"])
+        // Valid argument
+        let result = try await tool.handler(["count": 42])
         guard case .text(let text) = result else {
             Issue.record("Expected text result")
             return
         }
-        #expect(text == "hello")
+        #expect(text == "Count: 42")
+
+        // Invalid type should throw
+        do {
+            _ = try await tool.handler(["count": "not a number"])
+            Issue.record("Should have thrown decoding error")
+        } catch {
+            // Expected - decoding error
+            #expect(error is DecodingError)
+        }
+    }
+
+    @Test("Typed tool with missing required field")
+    func typedToolMissingRequired() async throws {
+        struct RequiredArgs: Codable {
+            let required: String
+        }
+
+        let tool = MCPTool(
+            name: "test",
+            description: "Test",
+            schema: MCPSchema(
+                properties: ["required": .string("Required field")],
+                required: ["required"]
+            )
+        ) { (args: RequiredArgs) in
+            return .text(args.required)
+        }
+
+        // Missing required field should throw
+        do {
+            _ = try await tool.handler([:])
+            Issue.record("Should have thrown decoding error")
+        } catch {
+            #expect(error is DecodingError)
+        }
+    }
+
+    @Test("Typed tool with nested structures")
+    func typedToolNested() async throws {
+        struct Address: Codable {
+            let street: String
+            let city: String
+        }
+
+        struct UserArgs: Codable {
+            let name: String
+            let address: Address
+        }
+
+        let tool = MCPTool(
+            name: "register",
+            description: "Register user"
+        ) { (args: UserArgs) in
+            return .text("\(args.name) from \(args.address.city)")
+        }
+
+        let result = try await tool.handler([
+            "name": "Alice",
+            "address": [
+                "street": "123 Main St",
+                "city": "Springfield"
+            ]
+        ])
+
+        guard case .text(let text) = result else {
+            Issue.record("Expected text result")
+            return
+        }
+        #expect(text == "Alice from Springfield")
     }
 }

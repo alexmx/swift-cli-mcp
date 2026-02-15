@@ -7,12 +7,14 @@ struct ServerTests {
 
     @Test("Server initialization")
     func serverInit() {
+        struct EmptyArgs: Codable {}
+
         let server = MCPServer(
             name: "test-server",
             version: "1.0.0",
             description: "Test",
             tools: [
-                MCPTool(name: "tool1", description: "Tool 1") { _ in .text("ok") }
+                MCPTool(name: "tool1", description: "Tool 1") { (_: EmptyArgs) in .text("ok") }
             ],
             resources: [
                 MCPResource(uri: "test://r1", name: "R1") {
@@ -42,8 +44,10 @@ struct ServerTests {
 
     @Test("Tool lookup by name")
     func toolLookup() {
-        let tool1 = MCPTool(name: "echo", description: "Echo") { _ in .text("ok") }
-        let tool2 = MCPTool(name: "test", description: "Test") { _ in .text("ok") }
+        struct EmptyArgs: Codable {}
+
+        let tool1 = MCPTool(name: "echo", description: "Echo") { (_: EmptyArgs) in .text("ok") }
+        let tool2 = MCPTool(name: "test", description: "Test") { (_: EmptyArgs) in .text("ok") }
 
         let server = MCPServer(
             name: "server",

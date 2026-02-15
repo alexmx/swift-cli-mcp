@@ -1,6 +1,21 @@
 import Foundation
 import SwiftCliMcp
 
+// MARK: - Typed Arguments
+
+struct EchoArgs: Codable {
+    let message: String
+}
+
+struct ReportArgs: Codable {
+    let title: String
+}
+
+struct DivideArgs: Codable {
+    let a: Double
+    let b: Double
+}
+
 // MARK: - Test Server
 
 let server = MCPServer(
@@ -8,43 +23,41 @@ let server = MCPServer(
     version: "1.0.0",
     description: "Test server demonstrating all MCP features",
     tools: [
-        // Simple text tool
+        // Typed tool - type-safe with automatic validation
         MCPTool(
             name: "echo",
-            description: "Echo back the input message",
+            description: "Echo back the input message (typed)",
             schema: MCPSchema(
                 properties: [
                     "message": .string("The message to echo")
                 ],
                 required: ["message"]
             )
-        ) { args in
-            let message = args["message"] as? String ?? ""
-            return .text("Echo: \(message)")
+        ) { (args: EchoArgs) in
+            return .text("Echo: \(args.message)")
         },
 
-        // Tool that returns multiple content blocks
+        // Typed tool with multiple content blocks
         MCPTool(
             name: "generate_report",
-            description: "Generate a report with text and structured data",
+            description: "Generate a report with text and structured data (typed)",
             schema: MCPSchema(
                 properties: [
                     "title": .string("Report title")
                 ],
                 required: ["title"]
             )
-        ) { args in
-            let title = args["title"] as? String ?? "Untitled"
+        ) { (args: ReportArgs) in
             return .content([
-                .text("# \(title)\n\nThis is a test report."),
+                .text("# \(args.title)\n\nThis is a test report."),
                 .text("Status: All systems operational")
             ])
         },
 
-        // Tool with error handling
+        // Typed tool with error handling - no manual casting needed!
         MCPTool(
             name: "divide",
-            description: "Divide two numbers",
+            description: "Divide two numbers (typed with validation)",
             schema: MCPSchema(
                 properties: [
                     "a": .number("First number"),
@@ -52,30 +65,15 @@ let server = MCPServer(
                 ],
                 required: ["a", "b"]
             )
-        ) { args in
-            guard let a = args["a"] as? Double,
-                  let b = args["b"] as? Double else {
-                throw NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid numbers"])
-            }
-
-            guard b != 0 else {
+        ) { (args: DivideArgs) in
+            // No casting needed - args.a and args.b are guaranteed to be Double
+            guard args.b != 0 else {
                 throw NSError(domain: "test", code: 2, userInfo: [NSLocalizedDescriptionKey: "Division by zero"])
             }
 
-            return .text("Result: \(a / b)")
+            return .text("Result: \(args.a / args.b)")
         },
 
-        // Tool that uses logging
-        MCPTool(
-            name: "slow_task",
-            description: "Simulates a slow task with progress logging",
-            schema: MCPSchema()
-        ) { args in
-            // Note: This won't work as expected since we can't access server here
-            // In real usage, tools would need server reference or use a global/actor
-            try await Task.sleep(for: .milliseconds(100))
-            return .text("Task completed")
-        }
     ],
     resources: [
         // Static text resource
