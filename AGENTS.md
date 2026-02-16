@@ -23,18 +23,25 @@ swiftformat .
 
 ## Architecture
 
-**MCPServer.swift** - Main server handling JSON-RPC over stdio
-- Routes requests to method handlers (initialize, tools/list, tools/call, resources/list, resources/read)
-- Graceful shutdown via SIGTERM/SIGINT
+The codebase is organized into feature-based modules for clear separation of concerns:
 
-**MCPTool.swift** - Type-safe tool and resource definitions
-- `MCPTool<Arguments: Codable>` - Tools with typed argument validation
-- `MCPResource` - File/data exposure
-- `MCPSchema` and `MCPProperty` - Schema builders
-- `MCPContent` and `MCPToolResult` - Return types
+**Core/** - Server implementation
+- `MCPServer.swift` - Server initialization, run loop, signal handling, logging, I/O
+- `MCPServerHandlers.swift` - Request routing and method handlers (extension)
 
-**MCPTypes.swift** - JSON-RPC types (all Codable-based)
-- Request/response types, error codes, protocol constants
+**Tools/** - Tool definitions and schemas
+- `MCPTool.swift` - Type-safe tool definition with `MCPTool<Arguments: Codable>`
+- `MCPSchema.swift` - JSON Schema builders (`MCPSchema` and `MCPProperty`)
+
+**Resources/** - Resource definitions
+- `MCPResource.swift` - Resource exposure and contents handling
+
+**Content/** - Shared content types
+- `MCPContent.swift` - Content types (`MCPContent`) and tool results (`MCPToolResult`)
+
+**Protocol/** - JSON-RPC implementation
+- `JSONRPC.swift` - JSON-RPC 2.0 types, parsing, response building, AnyCodable
+- `MCPConstants.swift` - Protocol version and error codes
 
 ## Key Patterns
 
@@ -67,13 +74,15 @@ MCPTool(...) { (args: MyArgs) in .text(args.name) }
 
 ## Adding New Features
 
-**New Tool Type**: Add case to `MCPContent` enum, update `toDict()`
+**New Content Type**: Add case to `MCPContent` enum in `Content/MCPContent.swift`, update `toDict()`
 
-**New JSON-RPC Method**: Add case to switch in `handleRequest()`, create handler
+**New JSON-RPC Method**: Add case in `Core/MCPServerHandlers.swift` `handleRequest()`, create handler method
 
-**New Schema Property Type**: Add static method to `MCPProperty`
+**New Schema Property Type**: Add static method to `MCPProperty` in `Tools/MCPSchema.swift`
 
-**New Tests**: Add to appropriate suite in Tests/SwiftCliMcpTests/
+**New Protocol Feature**: Update appropriate file in `Protocol/` (JSONRPC types or constants)
+
+**New Tests**: Add to appropriate suite in `Tests/SwiftCliMcpTests/`
 
 ## Requirements
 

@@ -1,0 +1,61 @@
+import Foundation
+
+// MARK: - Typed Schema
+
+/// A typed JSON Schema for MCP tool inputs.
+public struct MCPSchema: Sendable {
+    public let properties: [String: MCPProperty]
+    public let required: [String]
+
+    public init(properties: [String: MCPProperty] = [:], required: [String] = []) {
+        self.properties = properties
+        self.required = required
+    }
+
+    /// Merge two schemas (for composing shared + tool-specific properties).
+    public func merging(_ other: MCPSchema) -> MCPSchema {
+        MCPSchema(
+            properties: properties.merging(other.properties) { _, new in new },
+            required: required + other.required
+        )
+    }
+
+    func toDict() -> [String: Any] {
+        var dict: [String: Any] = ["type": "object"]
+        if !properties.isEmpty {
+            dict["properties"] = properties.mapValues { $0.toDict() }
+        }
+        if !required.isEmpty {
+            dict["required"] = required
+        }
+        return dict
+    }
+}
+
+// MARK: - Schema Property
+
+/// A single property in an MCP tool schema.
+public struct MCPProperty: Sendable {
+    let type: String
+    let description: String
+
+    public static func string(_ description: String) -> MCPProperty {
+        MCPProperty(type: "string", description: description)
+    }
+
+    public static func integer(_ description: String) -> MCPProperty {
+        MCPProperty(type: "integer", description: description)
+    }
+
+    public static func boolean(_ description: String) -> MCPProperty {
+        MCPProperty(type: "boolean", description: description)
+    }
+
+    public static func number(_ description: String) -> MCPProperty {
+        MCPProperty(type: "number", description: description)
+    }
+
+    func toDict() -> [String: Any] {
+        ["type": type, "description": description]
+    }
+}
