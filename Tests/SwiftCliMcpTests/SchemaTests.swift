@@ -500,6 +500,40 @@ struct SchemaTests {
         #expect(text == "Result: 5.0")
     }
 
+    @Test("Optional @InputProperty decodes when key is missing from JSON")
+    func optionalInputPropertyMissingKey() async throws {
+        struct Args: MCPToolInput {
+            @InputProperty("Required name")
+            var name: String
+
+            @InputProperty("Optional tag")
+            var tag: String?
+        }
+
+        let tool = MCPTool(
+            name: "test",
+            description: "Test"
+        ) { (args: Args) in
+            .text("name=\(args.name) tag=\(args.tag ?? "nil")")
+        }
+
+        // Key missing entirely — should decode to nil, not throw
+        let result = try await tool.handler(AnyCodable(["name": "Alice"] as [String: Any]))
+        guard case .text(let text) = result else {
+            Issue.record("Expected text result")
+            return
+        }
+        #expect(text == "name=Alice tag=nil")
+
+        // Key present — should decode normally
+        let result2 = try await tool.handler(AnyCodable(["name": "Bob", "tag": "admin"] as [String: Any]))
+        guard case .text(let text2) = result2 else {
+            Issue.record("Expected text result")
+            return
+        }
+        #expect(text2 == "name=Bob tag=admin")
+    }
+
     @Test("Typed tool with nested structures")
     func typedToolNested() async throws {
         struct Address: Codable {

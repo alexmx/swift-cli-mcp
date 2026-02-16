@@ -152,6 +152,36 @@ extension InputProperty: Codable {
     }
 }
 
+// MARK: Optional key handling
+
+/// When `@InputProperty("...") var field: T?` is used, Swift synthesizes
+/// `decode(InputProperty<T?>.self, forKey:)` — which requires the key to exist.
+/// This extension intercepts that call and uses `decodeIfPresent` so missing
+/// keys correctly decode to `nil` instead of throwing.
+extension KeyedDecodingContainer {
+    public func decode<T: Codable & Sendable>(
+        _ type: InputProperty<T?>.Type,
+        forKey key: Key
+    ) throws -> InputProperty<T?> {
+        if let value = try decodeIfPresent(T.self, forKey: key) {
+            return InputProperty<T?>(wrappedValue: value, "")
+        }
+        return InputProperty<T?>(wrappedValue: nil, "")
+    }
+}
+
+/// Skip encoding the key entirely when the wrapped optional is nil.
+extension KeyedEncodingContainer {
+    public mutating func encode(
+        _ value: InputProperty<(some Codable & Sendable)?>,
+        forKey key: Key
+    ) throws {
+        if let unwrapped = value.wrappedValue {
+            try encode(unwrapped, forKey: key)
+        }
+    }
+}
+
 // MARK: Equatable / Hashable
 
 extension InputProperty: Equatable where Value: Equatable {
