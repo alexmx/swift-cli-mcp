@@ -11,6 +11,11 @@ public struct MCPTool: Sendable {
 
     /// Create a tool with strongly-typed Codable arguments.
     ///
+    /// The schema is auto-generated from the `Arguments` type when not provided
+    /// explicitly. Property types are inferred (String → "string", Int → "integer",
+    /// Bool → "boolean", Double → "number") and non-optional properties are
+    /// marked as required.
+    ///
     /// Example:
     /// ```swift
     /// struct GreetArgs: Codable {
@@ -18,6 +23,21 @@ public struct MCPTool: Sendable {
     ///     let age: Int?
     /// }
     ///
+    /// // Auto-generated schema with custom descriptions
+    /// MCPTool(
+    ///     name: "greet",
+    ///     description: "Greet a user",
+    ///     propertyDescriptions: [
+    ///         "name": "User's name",
+    ///         "age": "User's age"
+    ///     ]
+    /// ) { (args: GreetArgs) in
+    ///     return .text("Hello \(args.name), age \(args.age ?? 0)")
+    /// }
+    /// ```
+    ///
+    /// You can still provide an explicit schema to override auto-generation:
+    /// ```swift
     /// MCPTool(
     ///     name: "greet",
     ///     description: "Greet a user",
@@ -36,11 +56,18 @@ public struct MCPTool: Sendable {
         name: String,
         description: String,
         schema: MCPSchema = MCPSchema(),
+        propertyDescriptions: [String: String] = [:],
         handler: @escaping @Sendable (Arguments) async throws -> MCPToolResult
     ) {
         self.name = name
         self.description = description
-        self.inputSchema = schema
+
+        // Auto-generate schema from type if no explicit properties provided
+        if schema.properties == nil {
+            self.inputSchema = MCPSchema.from(Arguments.self, descriptions: propertyDescriptions)
+        } else {
+            self.inputSchema = schema
+        }
 
         // Wrap the typed handler to decode arguments
         self.handler = { anyArgs in

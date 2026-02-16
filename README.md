@@ -4,7 +4,7 @@ A lightweight Swift library for building stdio-based [Model Context Protocol (MC
 
 ## Features
 
-- **Type-safe tools** with Codable argument validation
+- **Type-safe tools** with Codable argument validation and auto-generated schemas
 - **Resources** for exposing files and data
 - **Logging** to send messages to clients
 - **Graceful shutdown** on SIGTERM/SIGINT
@@ -36,10 +36,7 @@ let server = MCPServer(
         MCPTool(
             name: "echo",
             description: "Echo a message",
-            schema: MCPSchema(
-                properties: ["message": .string("The message to echo")],
-                required: ["message"]
-            )
+            propertyDescriptions: ["message": "The message to echo"]
         ) { (args: EchoArgs) in
             return .text("Echo: \(args.message)")
         }
@@ -48,6 +45,8 @@ let server = MCPServer(
 
 await server.run()
 ```
+
+The schema is auto-generated from `EchoArgs` — property types and required fields are inferred from the Codable struct.
 
 ## Simple Tools
 
@@ -80,7 +79,7 @@ For tools with multiple arguments or complex types, use the full syntax with Cod
 
 ### Tools
 
-Define your arguments as a Codable struct:
+Define your arguments as a Codable struct. The schema is auto-generated — property types are inferred (`String` → `"string"`, `Int` → `"integer"`, `Bool` → `"boolean"`, `Double` → `"number"`) and non-optional properties are marked as required:
 
 ```swift
 struct ListFilesArgs: Codable {
@@ -88,6 +87,22 @@ struct ListFilesArgs: Codable {
     let recursive: Bool?
 }
 
+MCPTool(
+    name: "list_files",
+    description: "List files in a directory",
+    propertyDescriptions: [
+        "path": "Directory path",
+        "recursive": "Include subdirectories"
+    ]
+) { (args: ListFilesArgs) in
+    let files = try FileManager.default.contentsOfDirectory(atPath: args.path)
+    return .text(files.joined(separator: "\n"))
+}
+```
+
+You can also define schemas manually for full control:
+
+```swift
 MCPTool(
     name: "list_files",
     description: "List files in a directory",

@@ -8,7 +8,7 @@ Swift library for building Model Context Protocol (MCP) servers for CLI tools. P
 # Build the library
 swift build
 
-# Run tests (39 tests across 5 suites)
+# Run tests
 swift test
 
 # Build and run example server
@@ -31,7 +31,8 @@ The codebase is organized into feature-based modules for clear separation of con
 
 **Tools/** - Tool definitions and schemas
 - `MCPTool.swift` - Type-safe tool definition with `MCPTool<Arguments: Codable>`
-- `MCPSchema.swift` - JSON Schema builders (`MCPSchema` and `MCPProperty`)
+- `MCPSchema.swift` - JSON Schema builders (`MCPSchema` and `MCPProperty`), auto-generation via `MCPSchema.from()`
+- `SchemaExtractor.swift` - Custom Decoder that introspects Codable types to auto-generate schemas
 
 **Resources/** - Resource definitions
 - `MCPResource.swift` - Resource exposure and contents handling
@@ -45,10 +46,14 @@ The codebase is organized into feature-based modules for clear separation of con
 
 ## Key Patterns
 
-**Type-Safe Tools** - All tools use `MCPTool<Arguments: Codable>`
+**Type-Safe Tools** - All tools use `MCPTool<Arguments: Codable>` with auto-generated schemas
 ```swift
 struct MyArgs: Codable { let name: String }
-MCPTool(...) { (args: MyArgs) in .text(args.name) }
+MCPTool(
+    name: "greet",
+    description: "Greet user",
+    propertyDescriptions: ["name": "User's name"]
+) { (args: MyArgs) in .text(args.name) }
 ```
 
 **Error Handling** - Errors auto-caught and returned to client. No crashes.
@@ -59,7 +64,8 @@ MCPTool(...) { (args: MyArgs) in .text(args.name) }
 
 **Tools API**
 - Only one way to create tools: `MCPTool<Arguments: Codable>`
-- Schema is always `MCPSchema` (no string-based schemas)
+- Schema auto-generated from Codable type; explicit `schema:` parameter overrides
+- `propertyDescriptions:` adds descriptions to auto-generated properties
 - Handler must return `MCPToolResult` (.text or .content)
 
 **Server Communication**
@@ -74,7 +80,7 @@ MCPTool(...) { (args: MyArgs) in .text(args.name) }
 
 ## Adding New Features
 
-**New Content Type**: Add case to `MCPContent` enum in `Content/MCPContent.swift`, update `toDict()`
+**New Content Type**: Add case to `MCPContent` enum in `Content/MCPContent.swift`, update encode/decode
 
 **New JSON-RPC Method**: Add case in `Core/MCPServerHandlers.swift` `handleRequest()`, create handler method
 

@@ -23,30 +23,20 @@ let server = MCPServer(
     version: "1.0.0",
     description: "Test server demonstrating all MCP features",
     tools: [
-        // Typed tool - type-safe with automatic validation
+        // Schema auto-generated from EchoArgs
         MCPTool(
             name: "echo",
-            description: "Echo back the input message (typed)",
-            schema: MCPSchema(
-                properties: [
-                    "message": .string("The message to echo")
-                ],
-                required: ["message"]
-            )
+            description: "Echo back the input message",
+            propertyDescriptions: ["message": "The message to echo"]
         ) { (args: EchoArgs) in
             return .text("Echo: \(args.message)")
         },
 
-        // Typed tool with multiple content blocks
+        // Schema auto-generated from ReportArgs
         MCPTool(
             name: "generate_report",
-            description: "Generate a report with text and structured data (typed)",
-            schema: MCPSchema(
-                properties: [
-                    "title": .string("Report title")
-                ],
-                required: ["title"]
-            )
+            description: "Generate a report with text and structured data",
+            propertyDescriptions: ["title": "Report title"]
         ) { (args: ReportArgs) in
             return .content([
                 .text("# \(args.title)\n\nThis is a test report."),
@@ -54,21 +44,21 @@ let server = MCPServer(
             ])
         },
 
-        // Typed tool with error handling - no manual casting needed!
+        // Schema auto-generated from DivideArgs
         MCPTool(
             name: "divide",
-            description: "Divide two numbers (typed with validation)",
-            schema: MCPSchema(
-                properties: [
-                    "a": .number("First number"),
-                    "b": .number("Second number")
-                ],
-                required: ["a", "b"]
-            )
+            description: "Divide two numbers",
+            propertyDescriptions: [
+                "a": "First number",
+                "b": "Second number"
+            ]
         ) { (args: DivideArgs) in
-            // No casting needed - args.a and args.b are guaranteed to be Double
             guard args.b != 0 else {
-                throw NSError(domain: "test", code: 2, userInfo: [NSLocalizedDescriptionKey: "Division by zero"])
+                throw NSError(
+                    domain: "test",
+                    code: 2,
+                    userInfo: [NSLocalizedDescriptionKey: "Division by zero"]
+                )
             }
 
             return .text("Result: \(args.a / args.b)")

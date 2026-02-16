@@ -14,6 +14,31 @@ public struct MCPSchema: Codable, Sendable {
         self.required = required.isEmpty ? nil : required
     }
 
+    /// Auto-generate a schema from a Codable type.
+    ///
+    /// Uses a custom decoder to introspect the type's properties and map them
+    /// to JSON Schema types. Non-optional properties are marked as required.
+    ///
+    /// Supported types: String, Bool, Int (all sizes), Double, Float, arrays,
+    /// and nested Codable structs. For complex schemas, use the manual initializer.
+    ///
+    /// - Parameters:
+    ///   - type: The Codable type to generate a schema from.
+    ///   - descriptions: Optional property descriptions keyed by property name.
+    ///     Defaults to the property name if not provided.
+    /// - Returns: An MCPSchema with properties and required fields inferred from the type.
+    public static func from<T: Codable>(
+        _ type: T.Type,
+        descriptions: [String: String] = [:]
+    ) -> MCPSchema {
+        let extractor = SchemaExtractor(descriptions: descriptions)
+        _ = try? T(from: extractor)
+        return MCPSchema(
+            properties: extractor.properties,
+            required: extractor.required
+        )
+    }
+
     /// Merge two schemas (for composing shared + tool-specific properties).
     public func merging(_ other: MCPSchema) -> MCPSchema {
         let mergedProperties = (properties ?? [:]).merging(other.properties ?? [:]) { _, new in new }
