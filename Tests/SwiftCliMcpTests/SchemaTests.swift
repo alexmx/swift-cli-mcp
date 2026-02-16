@@ -7,17 +7,22 @@ struct SchemaTests {
     // MARK: - Typed Schema Tests
 
     @Test("Empty schema")
-    func emptySchema() {
+    func emptySchema() throws {
         let schema = MCPSchema()
-        let dict = schema.toDict()
 
-        #expect(dict["type"] as? String == "object")
-        #expect(dict["properties"] == nil)
-        #expect(dict["required"] == nil)
+        // Test Codable conformance
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(schema)
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(MCPSchema.self, from: data)
+
+        #expect(decoded.type == "object")
+        #expect(decoded.properties == nil)
+        #expect(decoded.required == nil)
     }
 
     @Test("Schema with properties")
-    func schemaWithProperties() {
+    func schemaWithProperties() throws {
         let schema = MCPSchema(
             properties: [
                 "name": .string("User name"),
@@ -25,17 +30,18 @@ struct SchemaTests {
             ],
             required: ["name"]
         )
-        let dict = schema.toDict()
 
-        #expect(dict["type"] as? String == "object")
+        // Test Codable conformance
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(schema)
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(MCPSchema.self, from: data)
 
-        let props = dict["properties"] as? [String: [String: Any]]
-        #expect(props?["name"]?["type"] as? String == "string")
-        #expect(props?["name"]?["description"] as? String == "User name")
-        #expect(props?["age"]?["type"] as? String == "integer")
-
-        let required = dict["required"] as? [String]
-        #expect(required == ["name"])
+        #expect(decoded.type == "object")
+        #expect(decoded.properties?.count == 2)
+        #expect(decoded.properties?["name"]?.type == "string")
+        #expect(decoded.properties?["age"]?.type == "integer")
+        #expect(decoded.required == ["name"])
     }
 
     @Test("Schema merging")
@@ -50,32 +56,33 @@ struct SchemaTests {
         )
 
         let merged = base.merging(extra)
-        let dict = merged.toDict()
 
-        let props = dict["properties"] as? [String: [String: Any]]
-        #expect(props?.keys.count == 2)
-        #expect(props?["a"] != nil)
-        #expect(props?["b"] != nil)
-
-        let required = dict["required"] as? [String]
-        #expect(required?.count == 2)
-        #expect(required?.contains("a") == true)
-        #expect(required?.contains("b") == true)
+        #expect(merged.properties?.keys.count == 2)
+        #expect(merged.properties?["a"] != nil)
+        #expect(merged.properties?["b"] != nil)
+        #expect(merged.required?.count == 2)
+        #expect(merged.required?.contains("a") == true)
+        #expect(merged.required?.contains("b") == true)
     }
 
     // MARK: - Property Tests
 
     @Test("String property")
-    func stringProperty() {
+    func stringProperty() throws {
         let prop = MCPProperty.string("A string field")
-        let dict = prop.toDict()
 
-        #expect(dict["type"] as? String == "string")
-        #expect(dict["description"] as? String == "A string field")
+        // Test Codable conformance
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(prop)
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(MCPProperty.self, from: data)
+
+        #expect(decoded.type == "string")
+        #expect(decoded.description == "A string field")
     }
 
     @Test("All property types")
-    func allPropertyTypes() {
+    func allPropertyTypes() throws {
         let types: [(MCPProperty, String)] = [
             (.string("str"), "string"),
             (.integer("int"), "integer"),
@@ -84,8 +91,11 @@ struct SchemaTests {
         ]
 
         for (prop, expectedType) in types {
-            let dict = prop.toDict()
-            #expect(dict["type"] as? String == expectedType)
+            let encoder = JSONEncoder()
+            let data = try encoder.encode(prop)
+            let decoder = JSONDecoder()
+            let decoded = try decoder.decode(MCPProperty.self, from: data)
+            #expect(decoded.type == expectedType)
         }
     }
 
@@ -106,15 +116,11 @@ struct SchemaTests {
             )
         ) { (args: TestArgs) in .text("result") }
 
-        let def = tool.definition()
-        #expect(def["name"] as? String == "test")
-        #expect(def["description"] as? String == "Test tool")
-
-        let schema = def["inputSchema"] as? [String: Any]
-        #expect(schema?["type"] as? String == "object")
-
-        let props = schema?["properties"] as? [String: [String: Any]]
-        #expect(props?["input"]?["type"] as? String == "string")
+        let def = tool.toDefinition()
+        #expect(def.name == "test")
+        #expect(def.description == "Test tool")
+        #expect(def.inputSchema.type == "object")
+        #expect(def.inputSchema.properties?["input"]?.type == "string")
     }
 
     // MARK: - Typed Arguments Tests
@@ -142,7 +148,7 @@ struct SchemaTests {
         }
 
         // Test with all fields
-        let result1 = try await tool.handler(["name": "Alice", "age": 30])
+        let result1 = try await tool.handler(AnyCodable(["name": "Alice", "age": 30] as [String: Any]))
         guard case .text(let text1) = result1 else {
             Issue.record("Expected text result")
             return
@@ -150,7 +156,7 @@ struct SchemaTests {
         #expect(text1 == "Hello Alice age 30")
 
         // Test with optional field missing
-        let result2 = try await tool.handler(["name": "Bob"])
+        let result2 = try await tool.handler(AnyCodable(["name": "Bob"] as [String: Any]))
         guard case .text(let text2) = result2 else {
             Issue.record("Expected text result")
             return
@@ -176,7 +182,7 @@ struct SchemaTests {
         }
 
         // Valid argument
-        let result = try await tool.handler(["count": 42])
+        let result = try await tool.handler(AnyCodable(["count": 42] as [String: Any]))
         guard case .text(let text) = result else {
             Issue.record("Expected text result")
             return
@@ -185,7 +191,7 @@ struct SchemaTests {
 
         // Invalid type should throw
         do {
-            _ = try await tool.handler(["count": "not a number"])
+            _ = try await tool.handler(AnyCodable(["count": "not a number"] as [String: Any]))
             Issue.record("Should have thrown decoding error")
         } catch {
             // Expected - decoding error
@@ -212,7 +218,7 @@ struct SchemaTests {
 
         // Missing required field should throw
         do {
-            _ = try await tool.handler([:])
+            _ = try await tool.handler(AnyCodable([:] as [String: Any]))
             Issue.record("Should have thrown decoding error")
         } catch {
             #expect(error is DecodingError)
@@ -238,13 +244,13 @@ struct SchemaTests {
             return .text("\(args.name) from \(args.address.city)")
         }
 
-        let result = try await tool.handler([
+        let result = try await tool.handler(AnyCodable([
             "name": "Alice",
             "address": [
                 "street": "123 Main St",
                 "city": "Springfield"
             ]
-        ])
+        ] as [String: Any]))
 
         guard case .text(let text) = result else {
             Issue.record("Expected text result")

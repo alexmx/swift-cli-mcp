@@ -24,14 +24,14 @@ public struct MCPResource: Sendable {
         self.handler = handler
     }
 
-    func definition() -> [String: Any] {
-        var dict: [String: Any] = [
-            "uri": uri,
-            "name": name
-        ]
-        if let description { dict["description"] = description }
-        if let mimeType { dict["mimeType"] = mimeType }
-        return dict
+    /// Build the resource definition for the protocol.
+    func toDefinition() -> ResourceDefinition {
+        return ResourceDefinition(
+            uri: uri,
+            name: name,
+            description: description,
+            mimeType: mimeType
+        )
     }
 }
 
@@ -58,14 +58,13 @@ public struct MCPResourceContents: Sendable {
         self.mimeType = mimeType
     }
 
-    func toDict() -> [String: Any] {
-        var dict: [String: Any] = ["uri": uri]
-        if let mimeType { dict["mimeType"] = mimeType }
-        if let text {
-            dict["text"] = text
-        } else if let blob {
-            dict["blob"] = blob.base64EncodedString()
-        }
-        return dict
+    /// Convert to protocol ResourceContentsItem.
+    func toProtocolItem() -> ResourceContentsItem {
+        return ResourceContentsItem(
+            uri: uri,
+            mimeType: mimeType,
+            text: text,
+            blob: blob
+        )
     }
 }

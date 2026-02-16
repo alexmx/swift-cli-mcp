@@ -38,8 +38,12 @@ public struct MCPServer: Sendable {
         self.description = description
         self.tools = tools
         self.resources = resources
-        self.toolsByName = Dictionary(uniqueKeysWithValues: tools.map { ($0.name, $0) })
-        self.resourcesByUri = Dictionary(uniqueKeysWithValues: resources.map { ($0.uri, $0) })
+        self.toolsByName = tools.reduce(into: [:]) { dict, tool in
+            dict[tool.name] = tool
+        }
+        self.resourcesByUri = resources.reduce(into: [:]) { dict, resource in
+            dict[resource.uri] = resource
+        }
 
         // Default log handler writes to stderr
         if let logHandler {
@@ -112,20 +116,15 @@ public struct MCPServer: Sendable {
 
     /// Send a log message to the client via notifications/message.
     public func sendLog(level: LogLevel, message: String, logger: String? = nil) {
-        let notification: [String: Any] = [
-            "jsonrpc": "2.0",
-            "method": "notifications/message",
-            "params": {
-                var params: [String: Any] = [
-                    "level": level.rawValue,
-                    "data": message
-                ]
-                if let logger { params["logger"] = logger }
-                return params
-            }() as [String: Any]
-        ]
+        let notification = LogNotification(
+            params: LogMessageParams(
+                level: level.rawValue,
+                data: message,
+                logger: logger
+            )
+        )
 
-        if let data = try? JSONSerialization.data(withJSONObject: notification) {
+        if let data = try? JSONCoder.encoder.encode(notification) {
             write(data)
         }
     }

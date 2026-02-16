@@ -112,15 +112,15 @@ struct JSONRPCRequest: Codable, Sendable {
     }
 }
 
-struct JSONRPCSuccessResponse: Codable, Sendable {
+struct JSONRPCSuccessResponse<Result: Encodable & Sendable>: Encodable, Sendable {
     let jsonrpc: String
     let id: JSONRPCId
-    let result: AnyCodable
+    let result: Result
 
-    init(id: JSONRPCId, result: Any) {
+    init(id: JSONRPCId, result: Result) {
         self.jsonrpc = "2.0"
         self.id = id
-        self.result = AnyCodable(result)
+        self.result = result
     }
 }
 
@@ -141,11 +141,24 @@ struct JSONRPCErrorResponse: Codable, Sendable {
     }
 }
 
+// MARK: - Shared Encoder/Decoder
+
+/// Shared JSON encoder/decoder instances to avoid repeated allocations
+enum JSONCoder {
+    static let encoder: JSONEncoder = {
+        let enc = JSONEncoder()
+        enc.outputFormatting = []
+        return enc
+    }()
+
+    static let decoder = JSONDecoder()
+}
+
 // MARK: - Parsing
 
 enum JSONRPCParser {
     static func parse(_ data: Data) -> JSONRPCRequest? {
-        guard let request = try? JSONDecoder().decode(JSONRPCRequest.self, from: data) else {
+        guard let request = try? JSONCoder.decoder.decode(JSONRPCRequest.self, from: data) else {
             return nil
         }
 
@@ -162,13 +175,11 @@ enum JSONRPCParser {
 // MARK: - Response Building
 
 enum JSONRPCResponse {
-    private static let encoder: JSONEncoder = {
-        let enc = JSONEncoder()
-        enc.outputFormatting = []
-        return enc
-    }()
+    private static var encoder: JSONEncoder {
+        JSONCoder.encoder
+    }
 
-    static func success(id: JSONRPCId, result: Any) -> Data {
+    static func success(id: JSONRPCId, result: some Encodable & Sendable) -> Data {
         let response = JSONRPCSuccessResponse(id: id, result: result)
         do {
             return try encoder.encode(response)

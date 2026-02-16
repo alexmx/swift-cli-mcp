@@ -5,49 +5,89 @@ import Testing
 @Suite("Content Types")
 struct ContentTests {
     @Test("Text content encoding")
-    func textContent() {
+    func textContent() throws {
         let content = MCPContent.text("Hello, world!")
-        let dict = content.toDict()
 
-        #expect(dict["type"] as? String == "text")
-        #expect(dict["text"] as? String == "Hello, world!")
+        // Encode to JSON
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(content)
+
+        // Decode back
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(MCPContent.self, from: data)
+
+        guard case .text(let text) = decoded else {
+            Issue.record("Expected text content")
+            return
+        }
+        #expect(text == "Hello, world!")
     }
 
     @Test("Image content encoding")
-    func imageContent() {
+    func imageContent() throws {
         let data = Data([0x00, 0x01, 0x02])
         let content = MCPContent.image(data: data, mimeType: "image/png")
-        let dict = content.toDict()
 
-        #expect(dict["type"] as? String == "image")
-        #expect(dict["mimeType"] as? String == "image/png")
-        #expect(dict["data"] as? String == data.base64EncodedString())
+        // Encode to JSON
+        let encoder = JSONEncoder()
+        let jsonData = try encoder.encode(content)
+
+        // Decode back
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(MCPContent.self, from: jsonData)
+
+        guard case .image(let decodedData, let mimeType) = decoded else {
+            Issue.record("Expected image content")
+            return
+        }
+        #expect(decodedData == data)
+        #expect(mimeType == "image/png")
     }
 
     @Test("Resource content encoding")
-    func resourceContent() {
+    func resourceContent() throws {
         let content = MCPContent.resource(
             uri: "file:///test.txt",
             mimeType: "text/plain",
             text: "content"
         )
-        let dict = content.toDict()
 
-        #expect(dict["type"] as? String == "resource")
-        #expect(dict["uri"] as? String == "file:///test.txt")
-        #expect(dict["mimeType"] as? String == "text/plain")
-        #expect(dict["text"] as? String == "content")
+        // Encode to JSON
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(content)
+
+        // Decode back
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(MCPContent.self, from: data)
+
+        guard case .resource(let uri, let mimeType, let text) = decoded else {
+            Issue.record("Expected resource content")
+            return
+        }
+        #expect(uri == "file:///test.txt")
+        #expect(mimeType == "text/plain")
+        #expect(text == "content")
     }
 
     @Test("Resource content with optional fields")
-    func resourceContentOptional() {
+    func resourceContentOptional() throws {
         let content = MCPContent.resource(uri: "file:///test", mimeType: nil, text: nil)
-        let dict = content.toDict()
 
-        #expect(dict["type"] as? String == "resource")
-        #expect(dict["uri"] as? String == "file:///test")
-        #expect(dict["mimeType"] == nil)
-        #expect(dict["text"] == nil)
+        // Encode to JSON
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(content)
+
+        // Decode back
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(MCPContent.self, from: data)
+
+        guard case .resource(let uri, let mimeType, let text) = decoded else {
+            Issue.record("Expected resource content")
+            return
+        }
+        #expect(uri == "file:///test")
+        #expect(mimeType == nil)
+        #expect(text == nil)
     }
 
     // MARK: - Tool Result Tests
@@ -55,11 +95,14 @@ struct ContentTests {
     @Test("Tool result - text convenience")
     func toolResultText() {
         let result = MCPToolResult.text("Hello")
-        let array = result.contentArray
+        let items = result.contentArray
 
-        #expect(array.count == 1)
-        #expect(array[0]["type"] as? String == "text")
-        #expect(array[0]["text"] as? String == "Hello")
+        #expect(items.count == 1)
+        guard case .text(let text) = items[0] else {
+            Issue.record("Expected text content item")
+            return
+        }
+        #expect(text == "Hello")
     }
 
     @Test("Tool result - multiple content blocks")
@@ -68,10 +111,18 @@ struct ContentTests {
             .text("First"),
             .text("Second")
         ])
-        let array = result.contentArray
+        let items = result.contentArray
 
-        #expect(array.count == 2)
-        #expect(array[0]["text"] as? String == "First")
-        #expect(array[1]["text"] as? String == "Second")
+        #expect(items.count == 2)
+        guard case .text(let text1) = items[0] else {
+            Issue.record("Expected text content item")
+            return
+        }
+        guard case .text(let text2) = items[1] else {
+            Issue.record("Expected text content item")
+            return
+        }
+        #expect(text1 == "First")
+        #expect(text2 == "Second")
     }
 }

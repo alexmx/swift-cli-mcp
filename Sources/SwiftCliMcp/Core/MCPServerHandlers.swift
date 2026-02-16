@@ -1,5 +1,42 @@
 import Foundation
 
+// MARK: - Parameter Extraction Helper
+
+extension MCPServer {
+    /// Result type for parameter extraction
+    private enum ParamResult<T> {
+        case success(T)
+        case error(Data)
+    }
+
+    /// Extract a required parameter from AnyCodable params
+    private func extractParam<T>(
+        _ params: AnyCodable?,
+        key: String,
+        id: JSONRPCId,
+        errorMessage: String
+    ) -> ParamResult<T> {
+        guard let params else {
+            return .error(JSONRPCResponse.error(
+                id: id,
+                code: MCPConstants.invalidParams,
+                message: "Missing params"
+            ))
+        }
+
+        guard let paramsDict = params.value as? [String: Any],
+              let value = paramsDict[key] as? T else {
+            return .error(JSONRPCResponse.error(
+                id: id,
+                code: MCPConstants.invalidParams,
+                message: errorMessage
+            ))
+        }
+
+        return .success(value)
+    }
+}
+
 // MARK: - Request Routing
 
 extension MCPServer {
@@ -14,13 +51,13 @@ extension MCPServer {
         case "tools/list":
             return handleToolsList(id: id)
         case "tools/call":
-            return await handleToolsCall(id: id, paramsDict: request.paramsDict)
+            return await handleToolsCall(id: id, params: request.params)
         case "resources/list":
             return handleResourcesList(id: id)
         case "resources/read":
-            return await handleResourcesRead(id: id, paramsDict: request.paramsDict)
+            return await handleResourcesRead(id: id, params: request.params)
         case "ping":
-            return JSONRPCResponse.success(id: id, result: [:] as [String: Any])
+            return JSONRPCResponse.success(id: id, result: EmptyObject())
         default:
             return JSONRPCResponse.error(
                 id: id,
@@ -44,75 +81,89 @@ extension MCPServer {
 
 extension MCPServer {
     func handleInitialize(id: JSONRPCId) -> Data {
-        var capabilities: [String: Any] = [:]
+        var toolsCapability: InitializeResponse.Capabilities.ToolsCapability?
+        var resourcesCapability: InitializeResponse.Capabilities.ResourcesCapability?
 
         if !tools.isEmpty {
-            capabilities["tools"] = ["listChanged": false] as [String: Any]
+            toolsCapability = InitializeResponse.Capabilities.ToolsCapability(listChanged: false)
         }
 
         if !resources.isEmpty {
-            capabilities["resources"] = ["listChanged": false] as [String: Any]
+            resourcesCapability = InitializeResponse.Capabilities.ResourcesCapability(listChanged: false)
         }
 
-        // Always support logging
-        capabilities["logging"] = [:] as [String: Any]
+        let response = InitializeResponse(
+            protocolVersion: MCPConstants.protocolVersion,
+            capabilities: InitializeResponse.Capabilities(
+                tools: toolsCapability,
+                resources: resourcesCapability,
+                logging: InitializeResponse.Capabilities.LoggingCapability()
+            ),
+            serverInfo: InitializeResponse.ServerInfo(
+                name: name,
+                version: version,
+                description: description
+            )
+        )
 
-        let result: [String: Any] = [
-            "protocolVersion": MCPConstants.protocolVersion,
-            "capabilities": capabilities,
-            "serverInfo": {
-                var info: [String: Any] = ["name": name, "version": version]
-                if let description { info["description"] = description }
-                return info
-            }() as [String: Any]
-        ]
-        return JSONRPCResponse.success(id: id, result: result)
+        return JSONRPCResponse.success(id: id, result: response)
     }
 
     func handleToolsList(id: JSONRPCId) -> Data {
-        let toolDefs = tools.map { $0.definition() }
-        let result: [String: Any] = ["tools": toolDefs]
-        return JSONRPCResponse.success(id: id, result: result)
+        let toolDefs = tools.map { $0.toDefinition() }
+        let response = ToolsListResponse(tools: toolDefs)
+        return JSONRPCResponse.success(id: id, result: response)
     }
 
-    func handleToolsCall(id: JSONRPCId, paramsDict: [String: Any]) async -> Data {
-        guard let toolName = paramsDict["name"] as? String else {
-            return JSONRPCResponse.error(id: id, code: MCPConstants.invalidParams, message: "Missing tool name")
+    func handleToolsCall(id: JSONRPCId, params: AnyCodable?) async -> Data {
+        // Extract tool name using helper
+        let name: String
+        switch extractParam(params, key: "name", id: id, errorMessage: "Missing tool name") as ParamResult<String> {
+        case .success(let value):
+            name = value
+        case .error(let errorResponse):
+            return errorResponse
         }
 
-        guard let tool = toolsByName[toolName] else {
-            return JSONRPCResponse.error(id: id, code: MCPConstants.invalidParams, message: "Unknown tool: \(toolName)")
+        guard let tool = toolsByName[name] else {
+            return JSONRPCResponse.error(id: id, code: MCPConstants.invalidParams, message: "Unknown tool: \(name)")
         }
 
-        let arguments = paramsDict["arguments"] as? [String: Any] ?? [:]
+        // Extract arguments directly (already in the right format)
+        let paramsDict = params?.value as? [String: Any] ?? [:]
+        let argumentsDict = paramsDict["arguments"] as? [String: Any] ?? [:]
+        let arguments = AnyCodable(argumentsDict)
 
         do {
             let toolResult = try await tool.handler(arguments)
-            let result: [String: Any] = [
-                "content": toolResult.contentArray,
-                "isError": false
-            ]
-            return JSONRPCResponse.success(id: id, result: result)
+            let response = ToolCallResponse(
+                content: toolResult.contentArray,
+                isError: false
+            )
+            return JSONRPCResponse.success(id: id, result: response)
         } catch {
-            let result: [String: Any] = [
-                "content": [
-                    ["type": "text", "text": String(describing: error)] as [String: Any]
-                ],
-                "isError": true
-            ]
-            return JSONRPCResponse.success(id: id, result: result)
+            let response = ToolCallResponse(
+                content: [.text(String(describing: error))],
+                isError: true
+            )
+            return JSONRPCResponse.success(id: id, result: response)
         }
     }
 
     func handleResourcesList(id: JSONRPCId) -> Data {
-        let resourceDefs = resources.map { $0.definition() }
-        let result: [String: Any] = ["resources": resourceDefs]
-        return JSONRPCResponse.success(id: id, result: result)
+        let resourceDefs = resources.map { $0.toDefinition() }
+        let response = ResourcesListResponse(resources: resourceDefs)
+        return JSONRPCResponse.success(id: id, result: response)
     }
 
-    func handleResourcesRead(id: JSONRPCId, paramsDict: [String: Any]) async -> Data {
-        guard let uri = paramsDict["uri"] as? String else {
-            return JSONRPCResponse.error(id: id, code: MCPConstants.invalidParams, message: "Missing resource uri")
+    func handleResourcesRead(id: JSONRPCId, params: AnyCodable?) async -> Data {
+        // Extract resource URI using helper
+        let uri: String
+        switch extractParam(params, key: "uri", id: id, errorMessage: "Missing resource uri") as ParamResult<String> {
+        case .success(let value):
+            uri = value
+        case .error(let errorResponse):
+            return errorResponse
         }
 
         guard let resource = resourcesByUri[uri] else {
@@ -121,10 +172,10 @@ extension MCPServer {
 
         do {
             let contents = try await resource.handler()
-            let result: [String: Any] = [
-                "contents": [contents.toDict()]
-            ]
-            return JSONRPCResponse.success(id: id, result: result)
+            let response = ResourcesReadResponse(
+                contents: [contents.toProtocolItem()]
+            )
+            return JSONRPCResponse.success(id: id, result: response)
         } catch {
             return JSONRPCResponse.error(
                 id: id,
@@ -134,3 +185,8 @@ extension MCPServer {
         }
     }
 }
+
+// MARK: - Helper Types
+
+/// Empty object for responses that need an empty result
+private struct EmptyObject: Codable, Sendable {}
