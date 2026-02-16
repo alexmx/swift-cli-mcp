@@ -258,27 +258,9 @@ MCPTool(name: "divide", description: "Divide two numbers") { (args: DivideArgs) 
 
 Type mismatches and missing required fields are validated automatically.
 
-### Server Properties
-
-Access server configuration:
-
-```swift
-let server = MCPServer(name: "my-server", version: "1.0", tools: [...])
-
-print(server.name)        // "my-server"
-print(server.version)     // "1.0"
-print(server.tools.count) // Number of tools
-```
-
-## Requirements
-
-- Swift 6.0+
-- macOS 15.0+
-
 ## Resources
 
 - [MCP Specification](https://modelcontextprotocol.io)
-- [JSON-RPC 2.0](https://www.jsonrpc.org/specification)
 
 ## License
 
