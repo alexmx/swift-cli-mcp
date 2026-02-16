@@ -49,6 +49,33 @@ let server = MCPServer(
 await server.run()
 ```
 
+## Simple Tools
+
+For tools without arguments or with a single string argument, use the convenience initializers:
+
+### No Arguments
+
+```swift
+MCPTool(name: "ping", description: "Check server status") {
+    return .text("pong")
+}
+```
+
+### Single String Argument
+
+```swift
+MCPTool(
+    name: "echo",
+    description: "Echo a message",
+    argumentName: "message",
+    argumentDescription: "The message to echo"
+) { message in
+    return .text("Echo: \(message)")
+}
+```
+
+For tools with multiple arguments or complex types, use the full syntax with Codable structs (see below).
+
 ## Usage
 
 ### Tools
@@ -199,10 +226,12 @@ let baseSchema = MCPSchema(
     required: ["apiKey"]
 )
 
-let extendedSchema = baseSchema.merging(MCPSchema(
-    properties: ["timeout": .integer("Request timeout")],
-    required: []
-))
+let extendedSchema = baseSchema.merging(
+    MCPSchema(
+        properties: ["timeout": .integer("Request timeout")],
+        required: []
+    )
+)
 ```
 
 ### Error Handling
@@ -217,8 +246,11 @@ struct DivideArgs: Codable {
 
 MCPTool(name: "divide", description: "Divide two numbers") { (args: DivideArgs) in
     guard args.b != 0 else {
-        throw NSError(domain: "math", code: 1,
-                     userInfo: [NSLocalizedDescriptionKey: "Division by zero"])
+        throw NSError(
+            domain: "math",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Division by zero"]
+        )
     }
     return .text("Result: \(args.a / args.b)")
 }
