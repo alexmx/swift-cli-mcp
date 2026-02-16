@@ -40,6 +40,16 @@ let server = MCPServer(
         ) { (args: EchoArgs) in
             return .text("Echo: \(args.message)")
         }
+    ],
+    resources: [
+        MCPResource(
+            uri: "config://version",
+            name: "Version",
+            description: "Current server version",
+            mimeType: "text/plain"
+        ) {
+            return MCPResourceContents(uri: "config://version", text: "1.0.0")
+        }
     ]
 )
 
