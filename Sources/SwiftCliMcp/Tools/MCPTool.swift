@@ -23,20 +23,12 @@ public struct MCPTool: Sendable {
     ///     let age: Int?
     /// }
     ///
-    /// // Auto-generated schema with custom descriptions
-    /// MCPTool(
-    ///     name: "greet",
-    ///     description: "Greet a user",
-    ///     propertyDescriptions: [
-    ///         "name": "User's name",
-    ///         "age": "User's age"
-    ///     ]
-    /// ) { (args: GreetArgs) in
+    /// MCPTool(name: "greet", description: "Greet a user") { (args: GreetArgs) in
     ///     return .text("Hello \(args.name), age \(args.age ?? 0)")
     /// }
     /// ```
     ///
-    /// You can still provide an explicit schema to override auto-generation:
+    /// You can provide an explicit schema to override auto-generation:
     /// ```swift
     /// MCPTool(
     ///     name: "greet",
@@ -56,7 +48,6 @@ public struct MCPTool: Sendable {
         name: String,
         description: String,
         schema: MCPSchema = MCPSchema(),
-        propertyDescriptions: [String: String] = [:],
         handler: @escaping @Sendable (Arguments) async throws -> MCPToolResult
     ) {
         self.name = name
@@ -64,7 +55,7 @@ public struct MCPTool: Sendable {
 
         // Auto-generate schema from type if no explicit properties provided
         if schema.properties == nil {
-            self.inputSchema = MCPSchema.from(Arguments.self, descriptions: propertyDescriptions)
+            self.inputSchema = MCPSchema.from(Arguments.self)
         } else {
             self.inputSchema = schema
         }
@@ -82,14 +73,14 @@ public struct MCPTool: Sendable {
         }
     }
 
-    /// Create a tool with MCPToolInput arguments that have `@PropertyDescription` annotations.
+    /// Create a tool with MCPToolInput arguments that have `@InputProperty` annotations.
     ///
-    /// Descriptions are automatically extracted from `@PropertyDescription` wrappers.
+    /// Descriptions are automatically extracted from `@InputProperty` wrappers.
     ///
     /// Example:
     /// ```swift
     /// struct EchoArgs: MCPToolInput {
-    ///     @PropertyDescription("The message to echo")
+    ///     @InputProperty("The message to echo")
     ///     var message: String
     /// }
     ///

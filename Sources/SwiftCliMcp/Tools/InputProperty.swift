@@ -3,7 +3,7 @@ import Foundation
 // MARK: - SchemaDefaultValue Protocol
 
 /// Types that can provide a default value for schema extraction.
-/// This enables `@PropertyDescription("...")` syntax without requiring a default value.
+/// This enables `@InputProperty("...")` syntax without requiring a default value.
 public protocol SchemaDefaultValue {
     static var schemaDefault: Self { get }
 }
@@ -104,7 +104,7 @@ extension Optional: SchemaDefaultValue {
     }
 }
 
-// MARK: - PropertyDescription Property Wrapper
+// MARK: - InputProperty Property Wrapper
 
 /// Property wrapper that attaches a description to a Codable property
 /// for automatic MCP schema generation.
@@ -112,12 +112,12 @@ extension Optional: SchemaDefaultValue {
 /// Usage:
 /// ```swift
 /// struct EchoArgs: MCPToolInput {
-///     @PropertyDescription("The message to echo")
+///     @InputProperty("The message to echo")
 ///     var message: String
 /// }
 /// ```
 @propertyWrapper
-public struct PropertyDescription<Value: Codable & Sendable>: Sendable {
+public struct InputProperty<Value: Codable & Sendable>: Sendable {
     public var wrappedValue: Value
     public let description: String
 
@@ -128,9 +128,9 @@ public struct PropertyDescription<Value: Codable & Sendable>: Sendable {
     }
 }
 
-extension PropertyDescription where Value: SchemaDefaultValue {
+extension InputProperty where Value: SchemaDefaultValue {
     /// Initialize with just a description. The wrapped value uses the type's default.
-    /// Enables `@PropertyDescription("msg") var message: String` without `= ""`.
+    /// Enables `@InputProperty("msg") var message: String` without `= ""`.
     public init(_ description: String) {
         self.wrappedValue = Value.schemaDefault
         self.description = description
@@ -139,7 +139,7 @@ extension PropertyDescription where Value: SchemaDefaultValue {
 
 // MARK: Codable (transparent)
 
-extension PropertyDescription: Codable {
+extension InputProperty: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         self.wrappedValue = try container.decode(Value.self)
@@ -154,13 +154,13 @@ extension PropertyDescription: Codable {
 
 // MARK: Equatable / Hashable
 
-extension PropertyDescription: Equatable where Value: Equatable {
+extension InputProperty: Equatable where Value: Equatable {
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.wrappedValue == rhs.wrappedValue
     }
 }
 
-extension PropertyDescription: Hashable where Value: Hashable {
+extension InputProperty: Hashable where Value: Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(wrappedValue)
     }
@@ -169,16 +169,16 @@ extension PropertyDescription: Hashable where Value: Hashable {
 // MARK: - MCPToolInput Protocol
 
 /// Protocol for tool argument types that support automatic description extraction
-/// via `@PropertyDescription` wrappers.
+/// via `@InputProperty` wrappers.
 ///
 /// Conforming types must have a parameterless `init()` so the library can create
 /// a default instance and use Mirror to extract descriptions. When all properties
-/// use `@PropertyDescription` with `SchemaDefaultValue`-conforming types, `init()`
+/// use `@InputProperty` with `SchemaDefaultValue`-conforming types, `init()`
 /// is auto-synthesized.
 ///
 /// ```swift
 /// struct EchoArgs: MCPToolInput {
-///     @PropertyDescription("The message to echo")
+///     @InputProperty("The message to echo")
 ///     var message: String
 /// }
 /// ```
@@ -188,25 +188,25 @@ public protocol MCPToolInput: Codable, Sendable {
 
 // MARK: - Internal Protocols
 
-/// Type-erased protocol for extracting description from PropertyDescription<V>.
-protocol PropertyDescribed {
+/// Type-erased protocol for extracting description from InputProperty<V>.
+protocol InputPropertyDescribed {
     var propertyDescription: String { get }
 }
 
-extension PropertyDescription: PropertyDescribed {
+extension InputProperty: InputPropertyDescribed {
     var propertyDescription: String {
         description
     }
 }
 
-/// Protocol for SchemaExtractor to detect PropertyDescription wrappers
+/// Protocol for SchemaExtractor to detect InputProperty wrappers
 /// and get the wrapped type's JSON schema type.
 protocol SchemaPropertyWrapper {
     static var wrappedSchemaType: String { get }
     static var wrappedIsOptional: Bool { get }
 }
 
-extension PropertyDescription: SchemaPropertyWrapper {
+extension InputProperty: SchemaPropertyWrapper {
     static var wrappedSchemaType: String {
         if let optionalType = Value.self as? any OptionalProtocol.Type {
             return SchemaTypeMapper.jsonType(for: optionalType.wrappedType)
@@ -232,9 +232,9 @@ extension Optional: OptionalProtocol {
 
 // MARK: - Description Extraction
 
-/// Extracts @PropertyDescription descriptions from an MCPToolInput type
+/// Extracts @InputProperty descriptions from an MCPToolInput type
 /// by creating a default instance and inspecting it with Mirror.
-enum PropertyDescriptionExtractor {
+enum InputPropertyExtractor {
     static func extractDescriptions<T: MCPToolInput>(from _: T.Type) -> [String: String] {
         let instance = T()
         let mirror = Mirror(reflecting: instance)
@@ -245,7 +245,7 @@ enum PropertyDescriptionExtractor {
             // Property wrapper storage is prefixed with "_"
             let propertyName = label.hasPrefix("_") ? String(label.dropFirst()) : label
 
-            if let described = child.value as? any PropertyDescribed {
+            if let described = child.value as? any InputPropertyDescribed {
                 descriptions[propertyName] = described.propertyDescription
             }
         }

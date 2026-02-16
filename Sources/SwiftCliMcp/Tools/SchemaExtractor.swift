@@ -142,7 +142,7 @@ private struct SchemaKeyedContainer<Key: CodingKey>: KeyedDecodingContainerProto
     // MARK: Generic Required Decode
 
     func decode<T: Decodable>(_ type: T.Type, forKey key: Key) throws -> T {
-        // Detect @PropertyDescription wrapper and use the wrapped type's JSON type
+        // Detect @InputProperty wrapper and use the wrapped type's JSON type
         if let wrapperType = type as? any SchemaPropertyWrapper.Type {
             let jsonType = wrapperType.wrappedSchemaType
             if wrapperType.wrappedIsOptional {
@@ -235,7 +235,7 @@ private struct SchemaKeyedContainer<Key: CodingKey>: KeyedDecodingContainerProto
     // MARK: Generic Optional Decode
 
     func decodeIfPresent<T: Decodable>(_ type: T.Type, forKey key: Key) throws -> T? {
-        // Detect @PropertyDescription wrapper and use the wrapped type's JSON type
+        // Detect @InputProperty wrapper and use the wrapped type's JSON type
         if let wrapperType = type as? any SchemaPropertyWrapper.Type {
             recordOptional(key, jsonType: wrapperType.wrappedSchemaType)
         } else {

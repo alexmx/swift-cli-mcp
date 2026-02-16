@@ -22,16 +22,10 @@ public struct MCPSchema: Codable, Sendable {
     /// Supported types: String, Bool, Int (all sizes), Double, Float, arrays,
     /// and nested Codable structs. For complex schemas, use the manual initializer.
     ///
-    /// - Parameters:
-    ///   - type: The Codable type to generate a schema from.
-    ///   - descriptions: Optional property descriptions keyed by property name.
-    ///     Defaults to the property name if not provided.
+    /// - Parameter type: The Codable type to generate a schema from.
     /// - Returns: An MCPSchema with properties and required fields inferred from the type.
-    public static func from<T: Codable>(
-        _ type: T.Type,
-        descriptions: [String: String] = [:]
-    ) -> MCPSchema {
-        let extractor = SchemaExtractor(descriptions: descriptions)
+    public static func from<T: Codable>(_ type: T.Type) -> MCPSchema {
+        let extractor = SchemaExtractor()
         _ = try? T(from: extractor)
         return MCPSchema(
             properties: extractor.properties,
@@ -40,15 +34,15 @@ public struct MCPSchema: Codable, Sendable {
     }
 
     /// Auto-generate a schema from an MCPToolInput type, extracting descriptions
-    /// from `@PropertyDescription` wrappers automatically.
+    /// from `@InputProperty` wrappers automatically.
     ///
-    /// Creates a default instance and uses Mirror to find `@PropertyDescription`
+    /// Creates a default instance and uses Mirror to find `@InputProperty`
     /// wrappers and their description strings.
     ///
     /// - Parameter type: The MCPToolInput type to generate a schema from.
     /// - Returns: An MCPSchema with properties, required fields, and descriptions.
     public static func from<T: MCPToolInput>(_ type: T.Type) -> MCPSchema {
-        let descriptions = PropertyDescriptionExtractor.extractDescriptions(from: type)
+        let descriptions = InputPropertyExtractor.extractDescriptions(from: type)
         let extractor = SchemaExtractor(descriptions: descriptions)
         _ = try? T(from: extractor)
         return MCPSchema(

@@ -33,7 +33,7 @@ The codebase is organized into feature-based modules for clear separation of con
 - `MCPTool.swift` - Type-safe tool definition with `MCPTool<Arguments: Codable>`
 - `MCPSchema.swift` - JSON Schema builders (`MCPSchema` and `MCPProperty`), auto-generation via `MCPSchema.from()`
 - `SchemaExtractor.swift` - Custom Decoder that introspects Codable types to auto-generate schemas
-- `PropertyDescription.swift` - `@PropertyDescription` property wrapper, `MCPToolInput` protocol, schema description extraction
+- `InputProperty.swift` - `@InputProperty` property wrapper, `MCPToolInput` protocol, schema description extraction
 
 **Resources/** - Resource definitions
 - `MCPResource.swift` - Resource exposure and contents handling
@@ -47,15 +47,15 @@ The codebase is organized into feature-based modules for clear separation of con
 
 ## Key Patterns
 
-**Type-Safe Tools** - Tools use `MCPToolInput` with `@PropertyDescription` for co-located descriptions
+**Type-Safe Tools** - Tools use `MCPToolInput` with `@InputProperty` for co-located descriptions
 ```swift
 struct MyArgs: MCPToolInput {
-    @PropertyDescription("User's name")
+    @InputProperty("User's name")
     var name: String
 }
 MCPTool(name: "greet", description: "Greet user") { (args: MyArgs) in .text(args.name) }
 ```
-Plain `Codable` structs with `propertyDescriptions:` dictionary also supported.
+Plain `Codable` structs also supported (schema auto-generated without descriptions).
 
 **Error Handling** - Errors auto-caught and returned to client. No crashes.
 
@@ -64,9 +64,9 @@ Plain `Codable` structs with `propertyDescriptions:` dictionary also supported.
 ## Important Constraints
 
 **Tools API**
-- Preferred: `MCPToolInput` + `@PropertyDescription` for co-located descriptions
-- Alternative: plain `Codable` + `propertyDescriptions:` dictionary
-- Schema auto-generated from type; explicit `schema:` parameter overrides
+- Preferred: `MCPToolInput` + `@InputProperty` for co-located descriptions
+- Plain `Codable` structs also supported (auto-generated schema without descriptions)
+- Explicit `schema:` parameter overrides auto-generation
 - Handler must return `MCPToolResult` (.text or .content)
 
 **Server Communication**

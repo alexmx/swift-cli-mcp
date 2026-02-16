@@ -4,20 +4,20 @@ import SwiftMCP
 // MARK: - Typed Arguments
 
 struct EchoArgs: MCPToolInput {
-    @PropertyDescription("The message to echo")
+    @InputProperty("The message to echo")
     var message: String
 }
 
 struct ReportArgs: MCPToolInput {
-    @PropertyDescription("Report title")
+    @InputProperty("Report title")
     var title: String
 }
 
 struct DivideArgs: MCPToolInput {
-    @PropertyDescription("First number")
+    @InputProperty("First number")
     var a: Double
 
-    @PropertyDescription("Second number")
+    @InputProperty("Second number")
     var b: Double
 }
 

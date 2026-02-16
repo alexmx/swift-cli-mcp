@@ -4,7 +4,7 @@ A lightweight Swift library for building stdio-based [Model Context Protocol (MC
 
 ## Features
 
-- **Type-safe tools** with Codable argument validation, auto-generated schemas, and `@PropertyDescription` annotations
+- **Type-safe tools** with Codable argument validation, auto-generated schemas, and `@InputProperty` annotations
 - **Resources** for exposing files and data
 - **Logging** to send messages to clients
 - **Graceful shutdown** on SIGTERM/SIGINT
@@ -26,7 +26,7 @@ dependencies: [
 import SwiftMCP
 
 struct EchoArgs: MCPToolInput {
-    @PropertyDescription("The message to echo")
+    @InputProperty("The message to echo")
     var message: String
 }
 
@@ -79,14 +79,14 @@ For tools with multiple arguments or complex types, use the full syntax with Cod
 
 ### Tools
 
-Use `@PropertyDescription` to co-locate descriptions with your properties. The schema is auto-generated — property types are inferred (`String` → `"string"`, `Int` → `"integer"`, `Bool` → `"boolean"`, `Double` → `"number"`) and non-optional properties are marked as required:
+Use `@InputProperty` to co-locate descriptions with your properties. The schema is auto-generated — property types are inferred (`String` → `"string"`, `Int` → `"integer"`, `Bool` → `"boolean"`, `Double` → `"number"`) and non-optional properties are marked as required:
 
 ```swift
 struct ListFilesArgs: MCPToolInput {
-    @PropertyDescription("Directory path")
+    @InputProperty("Directory path")
     var path: String
 
-    @PropertyDescription("Include subdirectories")
+    @InputProperty("Include subdirectories")
     var recursive: Bool?
 }
 
@@ -99,28 +99,7 @@ MCPTool(
 }
 ```
 
-You can also use plain `Codable` structs with a `propertyDescriptions` dictionary:
-
-```swift
-struct ListFilesArgs: Codable {
-    let path: String
-    let recursive: Bool?
-}
-
-MCPTool(
-    name: "list_files",
-    description: "List files in a directory",
-    propertyDescriptions: [
-        "path": "Directory path",
-        "recursive": "Include subdirectories"
-    ]
-) { (args: ListFilesArgs) in
-    let files = try FileManager.default.contentsOfDirectory(atPath: args.path)
-    return .text(files.joined(separator: "\n"))
-}
-```
-
-Or define schemas manually for full control:
+You can also define schemas manually for full control:
 
 ```swift
 MCPTool(
