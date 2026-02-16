@@ -4,7 +4,7 @@ A lightweight Swift library for building stdio-based [Model Context Protocol (MC
 
 ## Features
 
-- **Type-safe tools** with Codable argument validation and auto-generated schemas
+- **Type-safe tools** with Codable argument validation, auto-generated schemas, and `@PropertyDescription` annotations
 - **Resources** for exposing files and data
 - **Logging** to send messages to clients
 - **Graceful shutdown** on SIGTERM/SIGINT
@@ -25,8 +25,9 @@ dependencies: [
 ```swift
 import SwiftMCP
 
-struct EchoArgs: Codable {
-    let message: String
+struct EchoArgs: MCPToolInput {
+    @PropertyDescription("The message to echo")
+    var message: String
 }
 
 let server = MCPServer(
@@ -35,8 +36,7 @@ let server = MCPServer(
     tools: [
         MCPTool(
             name: "echo",
-            description: "Echo a message",
-            propertyDescriptions: ["message": "The message to echo"]
+            description: "Echo a message"
         ) { (args: EchoArgs) in
             return .text("Echo: \(args.message)")
         }
@@ -46,7 +46,7 @@ let server = MCPServer(
 await server.run()
 ```
 
-The schema is auto-generated from `EchoArgs` — property types and required fields are inferred from the Codable struct.
+The schema is auto-generated from `EchoArgs` — property types, required fields, and descriptions are all inferred from the struct definition.
 
 ## Simple Tools
 
@@ -79,7 +79,27 @@ For tools with multiple arguments or complex types, use the full syntax with Cod
 
 ### Tools
 
-Define your arguments as a Codable struct. The schema is auto-generated — property types are inferred (`String` → `"string"`, `Int` → `"integer"`, `Bool` → `"boolean"`, `Double` → `"number"`) and non-optional properties are marked as required:
+Use `@PropertyDescription` to co-locate descriptions with your properties. The schema is auto-generated — property types are inferred (`String` → `"string"`, `Int` → `"integer"`, `Bool` → `"boolean"`, `Double` → `"number"`) and non-optional properties are marked as required:
+
+```swift
+struct ListFilesArgs: MCPToolInput {
+    @PropertyDescription("Directory path")
+    var path: String
+
+    @PropertyDescription("Include subdirectories")
+    var recursive: Bool?
+}
+
+MCPTool(
+    name: "list_files",
+    description: "List files in a directory"
+) { (args: ListFilesArgs) in
+    let files = try FileManager.default.contentsOfDirectory(atPath: args.path)
+    return .text(files.joined(separator: "\n"))
+}
+```
+
+You can also use plain `Codable` structs with a `propertyDescriptions` dictionary:
 
 ```swift
 struct ListFilesArgs: Codable {
@@ -100,7 +120,7 @@ MCPTool(
 }
 ```
 
-You can also define schemas manually for full control:
+Or define schemas manually for full control:
 
 ```swift
 MCPTool(

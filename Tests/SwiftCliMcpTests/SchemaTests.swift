@@ -408,6 +408,153 @@ struct SchemaTests {
         #expect(text == "Result: 7.0")
     }
 
+    // MARK: - @PropertyDescription Tests
+
+    @Test("PropertyDescription encodes/decodes transparently")
+    func propertyDescriptionCodable() throws {
+        struct TestArgs: Codable {
+            @PropertyDescription("A message")
+            var message: String = ""
+        }
+
+        let original = TestArgs(message: "hello")
+        let data = try JSONCoder.encoder.encode(original)
+        let json = try #require(String(data: data, encoding: .utf8))
+        #expect(json.contains("\"hello\""))
+        #expect(!json.contains("wrappedValue"))
+
+        let decoded = try JSONCoder.decoder.decode(TestArgs.self, from: data)
+        #expect(decoded.message == "hello")
+    }
+
+    @Test("MCPToolInput extracts descriptions from @PropertyDescription")
+    func toolInputDescriptionExtraction() {
+        struct EchoArgs: MCPToolInput {
+            @PropertyDescription("The message to echo")
+            var message: String
+        }
+
+        let schema = MCPSchema.from(EchoArgs.self)
+        #expect(schema.properties?["message"]?.type == "string")
+        #expect(schema.properties?["message"]?.description == "The message to echo")
+        #expect(schema.required == ["message"])
+    }
+
+    @Test("MCPToolInput with multiple property types")
+    func toolInputMultipleTypes() {
+        struct SearchArgs: MCPToolInput {
+            @PropertyDescription("Search query")
+            var query: String
+
+            @PropertyDescription("Maximum results")
+            var limit: Int
+
+            @PropertyDescription("Include details")
+            var verbose: Bool
+
+            @PropertyDescription("Score threshold")
+            var threshold: Double
+        }
+
+        let schema = MCPSchema.from(SearchArgs.self)
+        #expect(schema.properties?["query"]?.type == "string")
+        #expect(schema.properties?["query"]?.description == "Search query")
+        #expect(schema.properties?["limit"]?.type == "integer")
+        #expect(schema.properties?["verbose"]?.type == "boolean")
+        #expect(schema.properties?["threshold"]?.type == "number")
+        #expect(schema.required?.count == 4)
+    }
+
+    @Test("MCPToolInput with optional @PropertyDescription")
+    func toolInputOptionalProperty() {
+        struct Args: MCPToolInput {
+            @PropertyDescription("Required field")
+            var name: String
+
+            @PropertyDescription("Optional field")
+            var tag: String?
+        }
+
+        let schema = MCPSchema.from(Args.self)
+        #expect(schema.properties?["name"]?.type == "string")
+        #expect(schema.properties?["name"]?.description == "Required field")
+        #expect(schema.properties?["tag"]?.type == "string")
+        #expect(schema.properties?["tag"]?.description == "Optional field")
+        #expect(schema.required == ["name"])
+    }
+
+    @Test("MCPTool with MCPToolInput auto-generates schema")
+    func toolWithMCPToolInput() {
+        struct GreetArgs: MCPToolInput {
+            @PropertyDescription("User's name")
+            var name: String
+
+            @PropertyDescription("User's age")
+            var age: Int?
+        }
+
+        let tool = MCPTool(
+            name: "greet",
+            description: "Greet user"
+        ) { (args: GreetArgs) in
+            .text("Hello \(args.name)")
+        }
+
+        let def = tool.toDefinition()
+        #expect(def.inputSchema.properties?["name"]?.type == "string")
+        #expect(def.inputSchema.properties?["name"]?.description == "User's name")
+        #expect(def.inputSchema.properties?["age"]?.type == "integer")
+        #expect(def.inputSchema.required == ["name"])
+    }
+
+    @Test("MCPTool with MCPToolInput works end-to-end")
+    func toolWithMCPToolInputEndToEnd() async throws {
+        struct DivideArgs: MCPToolInput {
+            @PropertyDescription("First number")
+            var a: Double
+
+            @PropertyDescription("Second number")
+            var b: Double
+        }
+
+        let tool = MCPTool(
+            name: "divide",
+            description: "Divide"
+        ) { (args: DivideArgs) in
+            .text("Result: \(args.a / args.b)")
+        }
+
+        let def = tool.toDefinition()
+        #expect(def.inputSchema.properties?["a"]?.description == "First number")
+        #expect(def.inputSchema.properties?["b"]?.description == "Second number")
+        #expect(def.inputSchema.required?.count == 2)
+
+        let result = try await tool.handler(AnyCodable(["a": 10.0, "b": 2.0] as [String: Any]))
+        guard case .text(let text) = result else {
+            Issue.record("Expected text result")
+            return
+        }
+        #expect(text == "Result: 5.0")
+    }
+
+    @Test("Backward compatibility: propertyDescriptions still works")
+    func backwardCompatibility() {
+        struct EchoArgs: Codable {
+            let message: String
+        }
+
+        let tool = MCPTool(
+            name: "echo",
+            description: "Echo",
+            propertyDescriptions: ["message": "The message to echo"]
+        ) { (args: EchoArgs) in
+            .text(args.message)
+        }
+
+        let def = tool.toDefinition()
+        #expect(def.inputSchema.properties?["message"]?.description == "The message to echo")
+    }
+
     @Test("Typed tool with nested structures")
     func typedToolNested() async throws {
         struct Address: Codable {

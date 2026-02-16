@@ -39,6 +39,24 @@ public struct MCPSchema: Codable, Sendable {
         )
     }
 
+    /// Auto-generate a schema from an MCPToolInput type, extracting descriptions
+    /// from `@PropertyDescription` wrappers automatically.
+    ///
+    /// Creates a default instance and uses Mirror to find `@PropertyDescription`
+    /// wrappers and their description strings.
+    ///
+    /// - Parameter type: The MCPToolInput type to generate a schema from.
+    /// - Returns: An MCPSchema with properties, required fields, and descriptions.
+    public static func from<T: MCPToolInput>(_ type: T.Type) -> MCPSchema {
+        let descriptions = PropertyDescriptionExtractor.extractDescriptions(from: type)
+        let extractor = SchemaExtractor(descriptions: descriptions)
+        _ = try? T(from: extractor)
+        return MCPSchema(
+            properties: extractor.properties,
+            required: extractor.required
+        )
+    }
+
     /// Merge two schemas (for composing shared + tool-specific properties).
     public func merging(_ other: MCPSchema) -> MCPSchema {
         let mergedProperties = (properties ?? [:]).merging(other.properties ?? [:]) { _, new in new }

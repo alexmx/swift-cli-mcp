@@ -142,11 +142,24 @@ private struct SchemaKeyedContainer<Key: CodingKey>: KeyedDecodingContainerProto
     // MARK: Generic Required Decode
 
     func decode<T: Decodable>(_ type: T.Type, forKey key: Key) throws -> T {
-        let jsonType = SchemaTypeMapper.jsonType(for: type)
-        record(key, jsonType: jsonType)
+        // Detect @PropertyDescription wrapper and use the wrapped type's JSON type
+        if let wrapperType = type as? any SchemaPropertyWrapper.Type {
+            let jsonType = wrapperType.wrappedSchemaType
+            if wrapperType.wrappedIsOptional {
+                recordOptional(key, jsonType: jsonType)
+            } else {
+                record(key, jsonType: jsonType)
+            }
+        } else {
+            let jsonType = SchemaTypeMapper.jsonType(for: type)
+            record(key, jsonType: jsonType)
+        }
 
         // Try to create a dummy instance via recursive extraction
-        let subExtractor = SchemaExtractor(codingPath: codingPath + [key])
+        let subExtractor = SchemaExtractor(
+            descriptions: extractor.descriptions,
+            codingPath: codingPath + [key]
+        )
         if let value = try? T(from: subExtractor) {
             return value
         }
@@ -222,8 +235,13 @@ private struct SchemaKeyedContainer<Key: CodingKey>: KeyedDecodingContainerProto
     // MARK: Generic Optional Decode
 
     func decodeIfPresent<T: Decodable>(_ type: T.Type, forKey key: Key) throws -> T? {
-        let jsonType = SchemaTypeMapper.jsonType(for: type)
-        recordOptional(key, jsonType: jsonType)
+        // Detect @PropertyDescription wrapper and use the wrapped type's JSON type
+        if let wrapperType = type as? any SchemaPropertyWrapper.Type {
+            recordOptional(key, jsonType: wrapperType.wrappedSchemaType)
+        } else {
+            let jsonType = SchemaTypeMapper.jsonType(for: type)
+            recordOptional(key, jsonType: jsonType)
+        }
         return nil
     }
 

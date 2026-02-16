@@ -3,17 +3,22 @@ import SwiftMCP
 
 // MARK: - Typed Arguments
 
-struct EchoArgs: Codable {
-    let message: String
+struct EchoArgs: MCPToolInput {
+    @PropertyDescription("The message to echo")
+    var message: String
 }
 
-struct ReportArgs: Codable {
-    let title: String
+struct ReportArgs: MCPToolInput {
+    @PropertyDescription("Report title")
+    var title: String
 }
 
-struct DivideArgs: Codable {
-    let a: Double
-    let b: Double
+struct DivideArgs: MCPToolInput {
+    @PropertyDescription("First number")
+    var a: Double
+
+    @PropertyDescription("Second number")
+    var b: Double
 }
 
 // MARK: - Test Server
@@ -23,20 +28,16 @@ let server = MCPServer(
     version: "1.0.0",
     description: "Test server demonstrating all MCP features",
     tools: [
-        // Schema auto-generated from EchoArgs
         MCPTool(
             name: "echo",
-            description: "Echo back the input message",
-            propertyDescriptions: ["message": "The message to echo"]
+            description: "Echo back the input message"
         ) { (args: EchoArgs) in
             return .text("Echo: \(args.message)")
         },
 
-        // Schema auto-generated from ReportArgs
         MCPTool(
             name: "generate_report",
-            description: "Generate a report with text and structured data",
-            propertyDescriptions: ["title": "Report title"]
+            description: "Generate a report with text and structured data"
         ) { (args: ReportArgs) in
             return .content([
                 .text("# \(args.title)\n\nThis is a test report."),
@@ -44,14 +45,9 @@ let server = MCPServer(
             ])
         },
 
-        // Schema auto-generated from DivideArgs
         MCPTool(
             name: "divide",
-            description: "Divide two numbers",
-            propertyDescriptions: [
-                "a": "First number",
-                "b": "Second number"
-            ]
+            description: "Divide two numbers"
         ) { (args: DivideArgs) in
             guard args.b != 0 else {
                 throw NSError(

@@ -33,6 +33,7 @@ The codebase is organized into feature-based modules for clear separation of con
 - `MCPTool.swift` - Type-safe tool definition with `MCPTool<Arguments: Codable>`
 - `MCPSchema.swift` - JSON Schema builders (`MCPSchema` and `MCPProperty`), auto-generation via `MCPSchema.from()`
 - `SchemaExtractor.swift` - Custom Decoder that introspects Codable types to auto-generate schemas
+- `PropertyDescription.swift` - `@PropertyDescription` property wrapper, `MCPToolInput` protocol, schema description extraction
 
 **Resources/** - Resource definitions
 - `MCPResource.swift` - Resource exposure and contents handling
@@ -46,15 +47,15 @@ The codebase is organized into feature-based modules for clear separation of con
 
 ## Key Patterns
 
-**Type-Safe Tools** - All tools use `MCPTool<Arguments: Codable>` with auto-generated schemas
+**Type-Safe Tools** - Tools use `MCPToolInput` with `@PropertyDescription` for co-located descriptions
 ```swift
-struct MyArgs: Codable { let name: String }
-MCPTool(
-    name: "greet",
-    description: "Greet user",
-    propertyDescriptions: ["name": "User's name"]
-) { (args: MyArgs) in .text(args.name) }
+struct MyArgs: MCPToolInput {
+    @PropertyDescription("User's name")
+    var name: String
+}
+MCPTool(name: "greet", description: "Greet user") { (args: MyArgs) in .text(args.name) }
 ```
+Plain `Codable` structs with `propertyDescriptions:` dictionary also supported.
 
 **Error Handling** - Errors auto-caught and returned to client. No crashes.
 
@@ -63,9 +64,9 @@ MCPTool(
 ## Important Constraints
 
 **Tools API**
-- Only one way to create tools: `MCPTool<Arguments: Codable>`
-- Schema auto-generated from Codable type; explicit `schema:` parameter overrides
-- `propertyDescriptions:` adds descriptions to auto-generated properties
+- Preferred: `MCPToolInput` + `@PropertyDescription` for co-located descriptions
+- Alternative: plain `Codable` + `propertyDescriptions:` dictionary
+- Schema auto-generated from type; explicit `schema:` parameter overrides
 - Handler must return `MCPToolResult` (.text or .content)
 
 **Server Communication**

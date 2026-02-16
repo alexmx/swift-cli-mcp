@@ -82,6 +82,43 @@ public struct MCPTool: Sendable {
         }
     }
 
+    /// Create a tool with MCPToolInput arguments that have `@PropertyDescription` annotations.
+    ///
+    /// Descriptions are automatically extracted from `@PropertyDescription` wrappers.
+    ///
+    /// Example:
+    /// ```swift
+    /// struct EchoArgs: MCPToolInput {
+    ///     @PropertyDescription("The message to echo")
+    ///     var message: String
+    /// }
+    ///
+    /// MCPTool(name: "echo", description: "Echo") { (args: EchoArgs) in
+    ///     .text(args.message)
+    /// }
+    /// ```
+    public init<Arguments: MCPToolInput>(
+        name: String,
+        description: String,
+        schema: MCPSchema = MCPSchema(),
+        handler: @escaping @Sendable (Arguments) async throws -> MCPToolResult
+    ) {
+        self.name = name
+        self.description = description
+
+        if schema.properties == nil {
+            self.inputSchema = MCPSchema.from(Arguments.self)
+        } else {
+            self.inputSchema = schema
+        }
+
+        self.handler = { anyArgs in
+            let jsonData = try JSONCoder.encoder.encode(anyArgs)
+            let typedArgs = try JSONCoder.decoder.decode(Arguments.self, from: jsonData)
+            return try await handler(typedArgs)
+        }
+    }
+
     // MARK: - Convenience Initializers
 
     /// Create a tool without arguments.
