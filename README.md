@@ -1,6 +1,6 @@
 # Swift CLI MCP
 
-A Swift library for building [Model Context Protocol (MCP)](https://modelcontextprotocol.io) servers for CLI tools.
+A lightweight Swift library for building stdio-based [Model Context Protocol (MCP)](https://modelcontextprotocol.io) servers.
 
 ## Features
 
