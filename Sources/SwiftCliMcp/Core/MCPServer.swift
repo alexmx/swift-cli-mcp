@@ -45,15 +45,7 @@ public struct MCPServer: Sendable {
             dict[resource.uri] = resource
         }
 
-        // Default log handler writes to stderr
-        if let logHandler {
-            self.logHandler = logHandler
-        } else {
-            let serverName = name
-            self.logHandler = { message in
-                FileHandle.standardError.write(Data("[\(serverName)] \(message)\n".utf8))
-            }
-        }
+        self.logHandler = logHandler
     }
 
     /// Start the stdio loop. Blocks until stdin closes or receives shutdown signal.
