@@ -3,37 +3,30 @@ import Foundation
 // MARK: - Parameter Extraction Helper
 
 extension MCPServer {
-    /// Result type for parameter extraction
-    private enum ParamResult<T> {
-        case success(T)
-        case error(Data)
+    /// Error carrying a pre-built JSON-RPC error response.
+    private struct ParamError: Error {
+        let response: Data
     }
 
-    /// Extract a required parameter from AnyCodable params
+    /// Extract a required parameter from AnyCodable params.
+    /// Throws `ParamError` with a ready-to-send response on failure.
     private func extractParam<T>(
         _ params: AnyCodable?,
         key: String,
         id: JSONRPCId,
         errorMessage: String
-    ) -> ParamResult<T> {
-        guard let params else {
-            return .error(JSONRPCResponse.error(
-                id: id,
-                code: MCPConstants.invalidParams,
-                message: "Missing params"
-            ))
-        }
-
-        guard let paramsDict = params.value as? [String: Any],
-              let value = paramsDict[key] as? T else {
-            return .error(JSONRPCResponse.error(
+    ) throws(ParamError) -> T {
+        guard let params,
+              let paramsDict = params.value as? [String: Any],
+              let value = paramsDict[key] as? T
+        else {
+            throw ParamError(response: JSONRPCResponse.error(
                 id: id,
                 code: MCPConstants.invalidParams,
                 message: errorMessage
             ))
         }
-
-        return .success(value)
+        return value
     }
 }
 
@@ -116,13 +109,11 @@ extension MCPServer {
     }
 
     func handleToolsCall(id: JSONRPCId, params: AnyCodable?) async -> Data {
-        // Extract tool name using helper
         let name: String
-        switch extractParam(params, key: "name", id: id, errorMessage: "Missing tool name") as ParamResult<String> {
-        case .success(let value):
-            name = value
-        case .error(let errorResponse):
-            return errorResponse
+        do {
+            name = try extractParam(params, key: "name", id: id, errorMessage: "Missing tool name")
+        } catch {
+            return error.response
         }
 
         guard let tool = toolsByName[name] else {
@@ -157,13 +148,11 @@ extension MCPServer {
     }
 
     func handleResourcesRead(id: JSONRPCId, params: AnyCodable?) async -> Data {
-        // Extract resource URI using helper
         let uri: String
-        switch extractParam(params, key: "uri", id: id, errorMessage: "Missing resource uri") as ParamResult<String> {
-        case .success(let value):
-            uri = value
-        case .error(let errorResponse):
-            return errorResponse
+        do {
+            uri = try extractParam(params, key: "uri", id: id, errorMessage: "Missing resource uri")
+        } catch {
+            return error.response
         }
 
         guard let resource = resourcesByUri[uri] else {
