@@ -71,8 +71,8 @@ public struct MCPServer: Sendable {
         let signalSources = setupSignalHandlers()
         defer { signalSources.forEach { $0.cancel() } }
 
-        do {
-            try await withThrowingTaskGroup(of: Void.self) { group in
+        await withTaskGroup(of: Void.self) { group in
+            do {
                 for try await line in FileHandle.standardInput.bytes.lines {
                     // Check for cancellation or shutdown signal
                     if Task.isCancelled || Self.shouldShutdown.load(ordering: .relaxed) {
@@ -102,11 +102,11 @@ public struct MCPServer: Sendable {
                         await self.write(response)
                     }
                 }
-
-                // Wait for all in-flight request handlers to finish
+            } catch {
+                log("stdin error: \(error)")
             }
-        } catch {
-            log("stdin error: \(error)")
+
+            // Wait for all in-flight request handlers to finish
         }
 
         log("stdin closed, shutting down")
