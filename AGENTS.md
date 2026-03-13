@@ -38,6 +38,11 @@ The codebase is organized into feature-based modules for clear separation of con
 **Resources/** - Resource definitions
 - `MCPResource.swift` - Resource exposure and contents handling
 
+**Prompts/** - Prompt template definitions
+- `MCPPrompt.swift` - Prompt definition, arguments, result types with multi-role messages
+
+Note: `MCPResourceTemplate` for URI templates (RFC 6570) is defined in `Resources/MCPResource.swift`
+
 **Content/** - Shared content types
 - `MCPContent.swift` - Content types (`MCPContent`) and tool results (`MCPToolResult`)
 
@@ -57,6 +62,17 @@ MCPTool(name: "greet", description: "Greet user") { (args: MyArgs) in .text(args
 ```
 Plain `Codable` structs also supported (schema auto-generated without descriptions).
 
+**Prompt Templates** - Prompts define reusable message templates with arguments
+```swift
+.prompt(
+    name: "review",
+    description: "Code review",
+    arguments: [.required(name: "code", description: "Code to review")]
+) { args in
+    .userMessage("Review: \(args["code"]!)")
+}
+```
+
 **Error Handling** - Errors auto-caught and returned to client. No crashes.
 
 **Sendable Compliance** - Swift 6 strict concurrency throughout.
@@ -68,6 +84,12 @@ Plain `Codable` structs also supported (schema auto-generated without descriptio
 - Plain `Codable` structs also supported (auto-generated schema without descriptions)
 - Explicit `schema:` parameter overrides auto-generation
 - Handler must return `MCPToolResult` (.text or .content)
+
+**Prompts API**
+- Handler receives `[String: String]` arguments (string values only per MCP spec)
+- Handler must return `MCPPromptResult` with messages array
+- Messages support `.user` and `.assistant` roles
+- Message content: `.text`, `.image`, or `.resource`
 
 **Server Communication**
 - Stdio only - reads from stdin, writes to stdout
