@@ -35,6 +35,52 @@ public struct MCPResource: Sendable {
     }
 }
 
+// MARK: - Resource Template
+
+/// Represents a URI template for dynamic resources (RFC 6570).
+///
+/// Resource templates advertise URI patterns that clients can fill in.
+/// When a client reads a resolved URI, the server matches it against
+/// registered resources (or a template handler if provided).
+///
+/// Example:
+/// ```swift
+/// MCPResourceTemplate(
+///     uriTemplate: "file:///{path}",
+///     name: "Project Files",
+///     description: "Read any file in the project",
+///     mimeType: "text/plain"
+/// )
+/// ```
+public struct MCPResourceTemplate: Sendable {
+    public let uriTemplate: String
+    public let name: String
+    public let description: String?
+    public let mimeType: String?
+
+    public init(
+        uriTemplate: String,
+        name: String,
+        description: String? = nil,
+        mimeType: String? = nil
+    ) {
+        self.uriTemplate = uriTemplate
+        self.name = name
+        self.description = description
+        self.mimeType = mimeType
+    }
+
+    /// Build the template definition for the protocol.
+    func toDefinition() -> ResourceTemplateDefinition {
+        ResourceTemplateDefinition(
+            uriTemplate: uriTemplate,
+            name: name,
+            description: description,
+            mimeType: mimeType
+        )
+    }
+}
+
 // MARK: - Resource Contents
 
 /// Contents returned by resource handlers.

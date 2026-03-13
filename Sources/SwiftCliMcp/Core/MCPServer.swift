@@ -73,6 +73,7 @@ public struct MCPServer: Sendable {
     public let description: String?
     public let tools: [MCPTool]
     public let resources: [MCPResource]
+    public let resourceTemplates: [MCPResourceTemplate]
     public let prompts: [MCPPrompt]
     let toolsByName: [String: MCPTool]
     let resourcesByUri: [String: MCPResource]
@@ -100,6 +101,7 @@ public struct MCPServer: Sendable {
         description: String? = nil,
         tools: [MCPTool] = [],
         resources: [MCPResource] = [],
+        resourceTemplates: [MCPResourceTemplate] = [],
         prompts: [MCPPrompt] = [],
         logHandler: (@Sendable (String) -> Void)? = nil
     ) {
@@ -108,6 +110,7 @@ public struct MCPServer: Sendable {
         self.description = description
         self.tools = tools
         self.resources = resources
+        self.resourceTemplates = resourceTemplates
         self.prompts = prompts
         self.toolsByName = tools.reduce(into: [:]) { dict, tool in
             dict[tool.name] = tool

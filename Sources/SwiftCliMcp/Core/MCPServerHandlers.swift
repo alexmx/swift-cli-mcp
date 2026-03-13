@@ -49,6 +49,8 @@ extension MCPServer {
             return handleResourcesList(id: id)
         case "resources/read":
             return await handleResourcesRead(id: id, params: request.params)
+        case "resources/templates/list":
+            return handleResourceTemplatesList(id: id)
         case "prompts/list":
             return handlePromptsList(id: id)
         case "prompts/get":
@@ -201,6 +203,12 @@ extension MCPServer {
                 message: "Resource error: \(String(describing: error))"
             )
         }
+    }
+
+    func handleResourceTemplatesList(id: JSONRPCId) -> Data {
+        let templateDefs = resourceTemplates.map { $0.toDefinition() }
+        let response = ResourceTemplatesListResponse(resourceTemplates: templateDefs)
+        return JSONRPCResponse.success(id: id, result: response)
     }
 
     func handlePromptsList(id: JSONRPCId) -> Data {

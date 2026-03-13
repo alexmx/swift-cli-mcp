@@ -69,6 +69,19 @@ public struct ResourceDefinition: Codable, Sendable {
     public let mimeType: String?
 }
 
+/// Response for resources/templates/list request
+struct ResourceTemplatesListResponse: Codable, Sendable {
+    let resourceTemplates: [ResourceTemplateDefinition]
+}
+
+/// Resource template definition for protocol
+struct ResourceTemplateDefinition: Codable, Sendable {
+    let uriTemplate: String
+    let name: String
+    let description: String?
+    let mimeType: String?
+}
+
 /// Response for resources/read request
 struct ResourcesReadResponse: Codable, Sendable {
     let contents: [ResourceContentsItem]

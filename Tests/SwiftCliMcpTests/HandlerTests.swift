@@ -93,6 +93,19 @@ private func makeServer() -> MCPServer {
                 throw NSError(domain: "test", code: 2, userInfo: [NSLocalizedDescriptionKey: "Resource error"])
             }
         ],
+        resourceTemplates: [
+            MCPResourceTemplate(
+                uriTemplate: "file:///{path}",
+                name: "Project Files",
+                description: "Read any project file",
+                mimeType: "text/plain"
+            ),
+            MCPResourceTemplate(
+                uriTemplate: "db:///{table}/{id}",
+                name: "Database Records",
+                description: "Read a database record"
+            )
+        ],
         prompts: [
             MCPPrompt(
                 name: "code_review",
@@ -342,6 +355,42 @@ struct HandlerTests {
         } catch {
             #expect(String(describing: error).contains("Missing required argument"))
         }
+    }
+
+    // MARK: - Resource Templates
+
+    @Test("resources/templates/list returns all registered templates")
+    func resourceTemplatesList() async throws {
+        let response = await server.handleRequest(
+            request(#"{"jsonrpc":"2.0","id":40,"method":"resources/templates/list","params":{}}"#)
+        )
+        let json = try decodeResponse(response)
+        let result = try #require(json["result"] as? [String: Any])
+        let templates = try #require(result["resourceTemplates"] as? [[String: Any]])
+
+        #expect(templates.count == 2)
+        let uris = templates.compactMap { $0["uriTemplate"] as? String }
+        #expect(uris.contains("file:///{path}"))
+        #expect(uris.contains("db:///{table}/{id}"))
+    }
+
+    @Test("resources/templates/list includes template metadata")
+    func resourceTemplatesMetadata() async throws {
+        let response = await server.handleRequest(
+            request(#"{"jsonrpc":"2.0","id":41,"method":"resources/templates/list","params":{}}"#)
+        )
+        let json = try decodeResponse(response)
+        let result = try #require(json["result"] as? [String: Any])
+        let templates = try #require(result["resourceTemplates"] as? [[String: Any]])
+
+        let fileTemplate = try #require(templates.first { $0["uriTemplate"] as? String == "file:///{path}" })
+        #expect(fileTemplate["name"] as? String == "Project Files")
+        #expect(fileTemplate["description"] as? String == "Read any project file")
+        #expect(fileTemplate["mimeType"] as? String == "text/plain")
+
+        let dbTemplate = try #require(templates.first { $0["uriTemplate"] as? String == "db:///{table}/{id}" })
+        #expect(dbTemplate["name"] as? String == "Database Records")
+        #expect(dbTemplate["mimeType"] == nil)
     }
 
     // MARK: - Prompts
