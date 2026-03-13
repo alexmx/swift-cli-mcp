@@ -97,6 +97,48 @@ let server = MCPServer(
             """
             return MCPResourceContents(uri: "test://sysinfo", text: info, mimeType: "application/json")
         }
+    ],
+    resourceTemplates: [
+        MCPResourceTemplate(
+            uriTemplate: "file:///{path}",
+            name: "Project Files",
+            description: "Read any file in the project",
+            mimeType: "text/plain"
+        )
+    ],
+    prompts: [
+        MCPPrompt(
+            name: "code_review",
+            description: "Review code for issues and improvements",
+            arguments: [
+                .init(name: "code", description: "The code to review", required: true),
+                .init(name: "language", description: "Programming language")
+            ]
+        ) { args in
+            let code = args["code"] ?? ""
+            let lang = args["language"] ?? "unknown"
+            return MCPPromptResult(
+                description: "Code review prompt for \(lang)",
+                messages: [
+                    .init(role: .user, content: .text("Please review the following \(lang) code for bugs, style issues, and improvements:\n\n```\(lang)\n\(code)\n```"))
+                ]
+            )
+        },
+
+        MCPPrompt(
+            name: "summarize",
+            description: "Summarize content with a specific focus",
+            arguments: [
+                .init(name: "content", description: "The content to summarize", required: true),
+                .init(name: "focus", description: "What to focus the summary on")
+            ]
+        ) { args in
+            let content = args["content"] ?? ""
+            let focus = args["focus"].map { " Focus on: \($0)." } ?? ""
+            return MCPPromptResult(messages: [
+                .init(role: .user, content: .text("Summarize the following content.\(focus)\n\n\(content)"))
+            ])
+        }
     ]
 )
 
