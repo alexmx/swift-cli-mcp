@@ -1,6 +1,17 @@
 import Atomics
 import Foundation
 
+/// Serializes all writes to stdout so concurrent request handlers
+/// cannot interleave output and produce malformed JSON-RPC messages.
+private actor OutputWriter {
+    private let handle = FileHandle.standardOutput
+
+    func write(_ data: Data) {
+        handle.write(data)
+        handle.write(Data("\n".utf8))
+    }
+}
+
 /// A reusable MCP server that communicates via JSON-RPC 2.0 over stdio.
 ///
 /// Usage:
@@ -24,6 +35,9 @@ public struct MCPServer: Sendable {
 
     /// Atomic shutdown flag for signal handling
     private static let shouldShutdown = ManagedAtomic<Bool>(false)
+
+    /// Shared output writer for serialized stdout access
+    private let writer = OutputWriter()
 
     public init(
         name: String,
@@ -49,35 +63,46 @@ public struct MCPServer: Sendable {
     }
 
     /// Start the stdio loop. Blocks until stdin closes or receives shutdown signal.
+    /// Requests are dispatched concurrently so slow tool handlers do not block
+    /// other pending requests.
     public func run() async {
         log("MCP server '\(name)' v\(version) starting with \(tools.count) tool(s), \(resources.count) resource(s)")
 
         setupSignalHandlers()
 
         do {
-            for try await line in FileHandle.standardInput.bytes.lines {
-                // Check for cancellation or shutdown signal
-                if Task.isCancelled || Self.shouldShutdown.load(ordering: .relaxed) {
-                    log("Shutting down gracefully")
-                    break
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for try await line in FileHandle.standardInput.bytes.lines {
+                    // Check for cancellation or shutdown signal
+                    if Task.isCancelled || Self.shouldShutdown.load(ordering: .relaxed) {
+                        log("Shutting down gracefully")
+                        break
+                    }
+
+                    guard !line.isEmpty else { continue }
+
+                    guard let data = line.data(using: .utf8),
+                          let request = JSONRPCParser.parse(data)
+                    else {
+                        await write(JSONRPCResponse.error(id: nil, code: MCPConstants.parseError, message: "Parse error"))
+                        continue
+                    }
+
+                    // Notifications have no id and expect no response
+                    if request.isNotification {
+                        handleNotification(request)
+                        continue
+                    }
+
+                    // Dispatch request handling concurrently so slow tools
+                    // don't block other incoming requests
+                    group.addTask {
+                        let response = await self.handleRequest(request)
+                        await self.write(response)
+                    }
                 }
 
-                guard !line.isEmpty else { continue }
-
-                guard let data = line.data(using: .utf8),
-                      let request = JSONRPCParser.parse(data) else {
-                    write(JSONRPCResponse.error(id: nil, code: MCPConstants.parseError, message: "Parse error"))
-                    continue
-                }
-
-                // Notifications have no id and expect no response
-                if request.isNotification {
-                    handleNotification(request)
-                    continue
-                }
-
-                let response = await handleRequest(request)
-                write(response)
+                // Wait for all in-flight request handlers to finish
             }
         } catch {
             log("stdin error: \(error)")
@@ -107,7 +132,7 @@ public struct MCPServer: Sendable {
     // MARK: - Logging
 
     /// Send a log message to the client via notifications/message.
-    public func sendLog(level: LogLevel, message: String, logger: String? = nil) {
+    public func sendLog(level: LogLevel, message: String, logger: String? = nil) async {
         let notification = LogNotification(
             params: LogMessageParams(
                 level: level.rawValue,
@@ -117,7 +142,7 @@ public struct MCPServer: Sendable {
         )
 
         if let data = try? JSONCoder.encoder.encode(notification) {
-            write(data)
+            await write(data)
         }
     }
 
@@ -135,9 +160,8 @@ public struct MCPServer: Sendable {
 
     // MARK: - I/O
 
-    func write(_ data: Data) {
-        FileHandle.standardOutput.write(data)
-        FileHandle.standardOutput.write(Data("\n".utf8))
+    func write(_ data: Data) async {
+        await writer.write(data)
     }
 
     func log(_ message: String) {
