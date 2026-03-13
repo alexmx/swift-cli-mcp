@@ -5,8 +5,10 @@ A lightweight Swift library for building stdio-based [Model Context Protocol (MC
 ## Features
 
 - **Type-safe tools** with Codable argument validation, auto-generated schemas, and `@InputProperty` annotations
-- **Resources** for exposing files and data
-- **Logging** to send messages to clients
+- **Resources** for exposing files and data, with URI template support
+- **Prompts** for reusable prompt templates with typed arguments
+- **Logging** with client-controlled log levels (`logging/setLevel`)
+- **Concurrent request handling** with back-pressure and request cancellation
 - **Graceful shutdown** on SIGTERM/SIGINT
 - Full JSON-RPC 2.0 compliance
 
@@ -34,21 +36,20 @@ let server = MCPServer(
     name: "my-tools",
     version: "1.0.0",
     tools: [
-        MCPTool(
-            name: "echo",
-            description: "Echo a message"
-        ) { (args: EchoArgs) in
-            return .text("Echo: \(args.message)")
+        .tool(name: "echo", description: "Echo a message") { (args: EchoArgs) in
+            .text("Echo: \(args.message)")
         }
     ],
     resources: [
-        MCPResource(
-            uri: "config://version",
-            name: "Version",
-            description: "Current server version",
-            mimeType: "text/plain"
-        ) {
-            return MCPResourceContents(uri: "config://version", text: "1.0.0")
+        .textResource(uri: "config://version", name: "Version", mimeType: "text/plain") { _ in
+            "1.0.0"
+        }
+    ],
+    prompts: [
+        .prompt(name: "greet", description: "Generate a greeting", arguments: [
+            .required(name: "name", description: "Name to greet")
+        ]) { args in
+            .userMessage("Say hello to \(args["name"]!)")
         }
     ]
 )
@@ -58,36 +59,9 @@ await server.run()
 
 The schema is auto-generated from `EchoArgs` — property types, required fields, and descriptions are all inferred from the struct definition.
 
-## Simple Tools
+## Tools
 
-For tools without arguments or with a single string argument, use the convenience initializers:
-
-### No Arguments
-
-```swift
-MCPTool(name: "ping", description: "Check server status") {
-    return .text("pong")
-}
-```
-
-### Single String Argument
-
-```swift
-MCPTool(
-    name: "echo",
-    description: "Echo a message",
-    argumentName: "message",
-    argumentDescription: "The message to echo"
-) { message in
-    return .text("Echo: \(message)")
-}
-```
-
-For tools with multiple arguments or complex types, use the full syntax with Codable structs (see below).
-
-## Usage
-
-### Tools
+### Typed Arguments with `@InputProperty`
 
 Use `@InputProperty` to co-locate descriptions with your properties. The schema is auto-generated — property types are inferred (`String` → `"string"`, `Int` → `"integer"`, `Bool` → `"boolean"`, `Double` → `"number"`) and non-optional properties are marked as required:
 
@@ -100,19 +74,34 @@ struct ListFilesArgs: MCPToolInput {
     var recursive: Bool?
 }
 
-MCPTool(
-    name: "list_files",
-    description: "List files in a directory"
-) { (args: ListFilesArgs) in
+.tool(name: "list_files", description: "List files in a directory") { (args: ListFilesArgs) in
     let files = try FileManager.default.contentsOfDirectory(atPath: args.path)
     return .text(files.joined(separator: "\n"))
 }
 ```
 
-You can also define schemas manually for full control:
+### Simple Tools
+
+For tools without arguments or with a single string argument:
 
 ```swift
-MCPTool(
+// No arguments
+.tool(name: "ping", description: "Check server status") {
+    .text("pong")
+}
+
+// Single string argument
+.tool(name: "echo", description: "Echo a message", argumentName: "message", argumentDescription: "The message to echo") { message in
+    .text("Echo: \(message)")
+}
+```
+
+### Manual Schemas
+
+Override auto-generation for full control:
+
+```swift
+.tool(
     name: "list_files",
     description: "List files in a directory",
     schema: MCPSchema(
@@ -128,13 +117,13 @@ MCPTool(
 }
 ```
 
-#### Multiple Content Blocks
+### Multiple Content Blocks
 
 Return multiple content items in a single response:
 
 ```swift
-MCPTool(name: "report", description: "Generate report") { (args: ReportArgs) in
-    return .content([
+.tool(name: "report", description: "Generate report") { (args: ReportArgs) in
+    .content([
         .text("# Report\n\nGenerated at \(Date())"),
         .text("Status: Complete"),
         .image(data: chartData, mimeType: "image/png")
@@ -142,77 +131,105 @@ MCPTool(name: "report", description: "Generate report") { (args: ReportArgs) in
 }
 ```
 
-#### Nested Structures
+### Error Handling
 
-Full Codable support including nested objects and arrays:
+Errors are automatically caught and returned to the client:
 
 ```swift
-struct Address: Codable {
-    let street: String
-    let city: String
-}
-
-struct UserArgs: Codable {
-    let name: String
-    let email: String
-    let address: Address
-    let tags: [String]?
-}
-
-MCPTool(name: "register", description: "Register user") { (args: UserArgs) in
-    return .text("Registered \(args.name) in \(args.address.city)")
+.tool(name: "divide", description: "Divide two numbers") { (args: DivideArgs) in
+    guard args.b != 0 else {
+        throw NSError(domain: "math", code: 1, userInfo: [NSLocalizedDescriptionKey: "Division by zero"])
+    }
+    return .text("Result: \(args.a / args.b)")
 }
 ```
 
-### Resources
+Type mismatches and missing required fields are validated automatically.
+
+## Resources
 
 Expose files, logs, or dynamic data:
 
 ```swift
-MCPResource(
-    uri: "file:///logs/app.log",
-    name: "Application Log",
-    description: "Current application log",
-    mimeType: "text/plain"
-) {
-    let content = try String(contentsOfFile: "/var/log/app.log")
-    return MCPResourceContents(uri: "file:///logs/app.log", text: content)
+// Text resource — handler returns String, URI plumbed automatically
+.textResource(uri: "file:///logs/app.log", name: "Application Log", mimeType: "text/plain") { _ in
+    try String(contentsOfFile: "/var/log/app.log")
 }
-```
 
-#### Dynamic Resources
+// Binary resource — handler returns Data, URI plumbed automatically
+.blobResource(uri: "img://logo", name: "Logo", mimeType: "image/png") { _ in
+    try Data(contentsOf: URL(fileURLWithPath: "/assets/logo.png"))
+}
 
-```swift
-MCPResource(
-    uri: "system://stats",
-    name: "System Stats",
-    mimeType: "application/json"
-) {
+// Full handler when you need custom MCPResourceContents
+.resource(uri: "system://stats", name: "System Stats", mimeType: "application/json") {
     let stats = """
-    {
-        "cpu": \(ProcessInfo.processInfo.processorCount),
-        "memory": \(ProcessInfo.processInfo.physicalMemory)
-    }
+    {"cpu": \(ProcessInfo.processInfo.processorCount)}
     """
-    return MCPResourceContents(uri: "system://stats", text: stats)
+    return .text(uri: "system://stats", stats, mimeType: "application/json")
 }
 ```
 
-### Logging
+### Resource Templates
 
-Send log messages to the client:
+Advertise URI patterns (RFC 6570) that clients can fill in:
 
 ```swift
-server.sendLog(level: .info, message: "Processing started")
-server.sendLog(level: .warning, message: "Resource usage high")
-server.sendLog(level: .error, message: "Connection failed")
+resourceTemplates: [
+    .template(uriTemplate: "file:///{path}", name: "Project Files", mimeType: "text/plain"),
+    .template(uriTemplate: "db:///{table}/{id}", name: "Database Records")
+]
 ```
 
-Available log levels: `debug`, `info`, `notice`, `warning`, `error`, `critical`, `alert`, `emergency`
+## Prompts
 
-#### Custom Logging
+Define reusable prompt templates with typed arguments:
 
-Control where server logs go:
+```swift
+.prompt(
+    name: "code_review",
+    description: "Review code for issues",
+    arguments: [
+        .required(name: "code", description: "The code to review"),
+        .optional(name: "language", description: "Programming language")
+    ]
+) { args in
+    let code = args["code"] ?? ""
+    let lang = args["language"] ?? "unknown"
+    return .userMessage(
+        "Review this \(lang) code for bugs and improvements:\n\n```\(lang)\n\(code)\n```",
+        description: "Code review prompt"
+    )
+}
+```
+
+### Multi-message Prompts
+
+```swift
+.prompt(name: "interview", description: "Technical interview") { _ in
+    .result(messages: [
+        .user("Ask me a technical question about Swift concurrency."),
+        .assistant("I'll ask you about structured concurrency and actors.")
+    ])
+}
+```
+
+## Logging
+
+### Sending Logs to the Client
+
+```swift
+await server.sendLog(level: .info, message: "Processing started")
+await server.sendLog(level: .warning, message: "Resource usage high", logger: "monitor")
+```
+
+The client can control the minimum log level via `logging/setLevel`. Messages below the minimum are filtered automatically.
+
+Available levels (by severity): `debug`, `info`, `notice`, `warning`, `error`, `critical`, `alert`, `emergency`
+
+### Custom Server Logging
+
+Control where internal server logs go:
 
 ```swift
 let server = MCPServer(
@@ -220,13 +237,16 @@ let server = MCPServer(
     version: "1.0.0",
     tools: [...],
     logHandler: { message in
-        // Custom logging - write to file, use os_log, etc.
         print("[\(Date())] \(message)")
     }
 )
 ```
 
-### Schemas
+## Concurrency
+
+Requests are dispatched concurrently so slow tool handlers don't block others. The server applies back-pressure with a max concurrency limit (16) and supports request cancellation via `notifications/cancelled`.
+
+## Schemas
 
 Define schemas with typed properties:
 
@@ -245,42 +265,30 @@ MCPSchema(
 Merge schemas for reusable properties:
 
 ```swift
-let baseSchema = MCPSchema(
-    properties: ["apiKey": .string("API key")],
-    required: ["apiKey"]
-)
-
-let extendedSchema = baseSchema.merging(
-    MCPSchema(
-        properties: ["timeout": .integer("Request timeout")],
-        required: []
-    )
-)
+let base = MCPSchema(properties: ["apiKey": .string("API key")], required: ["apiKey"])
+let extended = base.merging(MCPSchema(properties: ["timeout": .integer("Timeout")]))
 ```
 
-### Error Handling
+## Supported MCP Methods
 
-Errors are automatically caught and returned to the client:
+| Method | Description |
+|--------|-------------|
+| `initialize` | Server info and capabilities |
+| `ping` | Health check |
+| `tools/list` | List available tools |
+| `tools/call` | Execute a tool |
+| `resources/list` | List available resources |
+| `resources/read` | Read a resource |
+| `resources/templates/list` | List URI templates |
+| `prompts/list` | List available prompts |
+| `prompts/get` | Get a rendered prompt |
+| `logging/setLevel` | Set minimum log level |
+| `notifications/cancelled` | Cancel an in-flight request |
 
-```swift
-struct DivideArgs: Codable {
-    let a: Double
-    let b: Double
-}
+## Requirements
 
-MCPTool(name: "divide", description: "Divide two numbers") { (args: DivideArgs) in
-    guard args.b != 0 else {
-        throw NSError(
-            domain: "math",
-            code: 1,
-            userInfo: [NSLocalizedDescriptionKey: "Division by zero"]
-        )
-    }
-    return .text("Result: \(args.a / args.b)")
-}
-```
-
-Type mismatches and missing required fields are validated automatically.
+- Swift 6.0+
+- macOS 15.0+
 
 ## Resources
 

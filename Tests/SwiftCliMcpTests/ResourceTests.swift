@@ -6,13 +6,13 @@ import Testing
 struct ResourceTests {
     @Test("Resource definition")
     func resourceDefinition() {
-        let resource = MCPResource(
+        let resource = MCPResource.textResource(
             uri: "file:///test.txt",
             name: "Test File",
             description: "A test file",
             mimeType: "text/plain"
-        ) {
-            MCPResourceContents(uri: "file:///test.txt", text: "content")
+        ) { _ in
+            "content"
         }
 
         let def = resource.toDefinition()
@@ -24,11 +24,11 @@ struct ResourceTests {
 
     @Test("Resource definition with optional fields")
     func resourceDefinitionOptional() {
-        let resource = MCPResource(
+        let resource = MCPResource.textResource(
             uri: "test://resource",
             name: "Resource"
-        ) {
-            MCPResourceContents(uri: "test://resource", text: "data")
+        ) { _ in
+            "data"
         }
 
         let def = resource.toDefinition()
@@ -40,11 +40,7 @@ struct ResourceTests {
 
     @Test("Resource contents - text")
     func resourceContentsText() {
-        let contents = MCPResourceContents(
-            uri: "test://file",
-            text: "Hello, world!",
-            mimeType: "text/plain"
-        )
+        let contents = MCPResourceContents.text(uri: "test://file", "Hello, world!", mimeType: "text/plain")
         let item = contents.toProtocolItem()
 
         #expect(item.uri == "test://file")
@@ -56,11 +52,7 @@ struct ResourceTests {
     @Test("Resource contents - blob")
     func resourceContentsBlob() {
         let data = Data([0x01, 0x02, 0x03])
-        let contents = MCPResourceContents(
-            uri: "test://binary",
-            blob: data,
-            mimeType: "application/octet-stream"
-        )
+        let contents = MCPResourceContents.blob(uri: "test://binary", data, mimeType: "application/octet-stream")
         let item = contents.toProtocolItem()
 
         #expect(item.uri == "test://binary")
@@ -71,11 +63,11 @@ struct ResourceTests {
 
     @Test("Resource handler execution")
     func resourceHandler() async throws {
-        let resource = MCPResource(
+        let resource = MCPResource.textResource(
             uri: "test://dynamic",
             name: "Dynamic"
-        ) {
-            return MCPResourceContents(uri: "test://dynamic", text: "generated at \(Date())")
+        ) { _ in
+            "generated at \(Date())"
         }
 
         let contents = try await resource.handler()

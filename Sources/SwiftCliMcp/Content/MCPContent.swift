@@ -66,9 +66,13 @@ public enum MCPContent: Codable, Sendable {
 // MARK: - Tool Result
 
 /// Result returned by tool handlers.
-public enum MCPToolResult: Sendable {
+public enum MCPToolResult: Sendable, ExpressibleByStringLiteral {
     case text(String) // Convenience for single text response
     case content([MCPContent]) // Advanced: multiple content blocks
+
+    public init(stringLiteral value: String) {
+        self = .text(value)
+    }
 
     /// Convert to MCPContent array
     var contentArray: [MCPContent] {

@@ -175,4 +175,46 @@ public struct MCPTool: Sendable {
             inputSchema: inputSchema
         )
     }
+
+    // MARK: - Static Factories
+
+    /// Create a tool with strongly-typed Codable arguments.
+    public static func tool<Arguments: Codable>(
+        name: String,
+        description: String,
+        schema: MCPSchema = MCPSchema(),
+        handler: @escaping @Sendable (Arguments) async throws -> MCPToolResult
+    ) -> MCPTool {
+        MCPTool(name: name, description: description, schema: schema, handler: handler)
+    }
+
+    /// Create a tool with MCPToolInput arguments.
+    public static func tool<Arguments: MCPToolInput>(
+        name: String,
+        description: String,
+        schema: MCPSchema = MCPSchema(),
+        handler: @escaping @Sendable (Arguments) async throws -> MCPToolResult
+    ) -> MCPTool {
+        MCPTool(name: name, description: description, schema: schema, handler: handler)
+    }
+
+    /// Create a tool without arguments.
+    public static func tool(
+        name: String,
+        description: String,
+        handler: @escaping @Sendable () async throws -> MCPToolResult
+    ) -> MCPTool {
+        MCPTool(name: name, description: description, handler: handler)
+    }
+
+    /// Create a tool with a single string argument.
+    public static func tool(
+        name: String,
+        description: String,
+        argumentName: String,
+        argumentDescription: String,
+        handler: @escaping @Sendable (String) async throws -> MCPToolResult
+    ) -> MCPTool {
+        MCPTool(name: name, description: description, argumentName: argumentName, argumentDescription: argumentDescription, handler: handler)
+    }
 }
