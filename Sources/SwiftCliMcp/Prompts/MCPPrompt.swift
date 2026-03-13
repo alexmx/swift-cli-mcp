@@ -36,18 +36,15 @@ public struct MCPPrompt: Sendable {
     ///
     /// Example:
     /// ```swift
-    /// MCPPrompt(
+    /// .prompt(
     ///     name: "code_review",
     ///     description: "Review code for issues",
     ///     arguments: [
-    ///         .init(name: "code", description: "The code to review", required: true),
-    ///         .init(name: "language", description: "Programming language")
+    ///         .required(name: "code", description: "The code to review"),
+    ///         .optional(name: "language", description: "Programming language")
     ///     ]
     /// ) { args in
-    ///     let code = args["code"] ?? ""
-    ///     return MCPPromptResult(messages: [
-    ///         .init(role: .user, content: .text("Review this code:\n\(code)"))
-    ///     ])
+    ///     .userMessage("Review this code:\n\(args["code"] ?? "")")
     /// }
     /// ```
     public init(
@@ -98,6 +95,11 @@ public struct MCPPromptResult: Sendable {
     public init(description: String? = nil, messages: [Message]) {
         self.description = description
         self.messages = messages
+    }
+
+    /// Create a result with multiple messages.
+    public static func result(description: String? = nil, messages: [Message]) -> MCPPromptResult {
+        MCPPromptResult(description: description, messages: messages)
     }
 
     /// Create a result with a single user text message.

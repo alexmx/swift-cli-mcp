@@ -89,7 +89,7 @@ private func makeServer() -> MCPServer {
             },
 
             .prompt(name: "summarize", description: "Summarize text") { _ in
-                MCPPromptResult(messages: [
+                .result(messages: [
                     .user("Summarize the following."),
                     .assistant("I'll summarize that for you.")
                 ])
