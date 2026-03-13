@@ -20,6 +20,16 @@ public struct MCPPrompt: Sendable {
             self.description = description
             self.required = required
         }
+
+        /// Create a required argument.
+        public static func required(name: String, description: String? = nil) -> Argument {
+            Argument(name: name, description: description, required: true)
+        }
+
+        /// Create an optional argument.
+        public static func optional(name: String, description: String? = nil) -> Argument {
+            Argument(name: name, description: description, required: false)
+        }
     }
 
     /// Create a prompt with arguments.
@@ -52,6 +62,16 @@ public struct MCPPrompt: Sendable {
         self.handler = handler
     }
 
+    /// Create a prompt.
+    public static func prompt(
+        name: String,
+        description: String? = nil,
+        arguments: [Argument] = [],
+        handler: @escaping @Sendable ([String: String]) async throws -> MCPPromptResult
+    ) -> MCPPrompt {
+        MCPPrompt(name: name, description: description, arguments: arguments, handler: handler)
+    }
+
     /// Build the prompt definition for the protocol.
     func toDefinition() -> PromptDefinition {
         PromptDefinition(
@@ -80,6 +100,16 @@ public struct MCPPromptResult: Sendable {
         self.messages = messages
     }
 
+    /// Create a result with a single user text message.
+    public static func userMessage(_ text: String, description: String? = nil) -> MCPPromptResult {
+        MCPPromptResult(description: description, messages: [.user(text)])
+    }
+
+    /// Create a result with a single assistant text message.
+    public static func assistantMessage(_ text: String, description: String? = nil) -> MCPPromptResult {
+        MCPPromptResult(description: description, messages: [.assistant(text)])
+    }
+
     /// A single message in a prompt result.
     public struct Message: Sendable {
         public let role: Role
@@ -88,6 +118,26 @@ public struct MCPPromptResult: Sendable {
         public init(role: Role, content: Content) {
             self.role = role
             self.content = content
+        }
+
+        /// Create a user message with text content.
+        public static func user(_ text: String) -> Message {
+            Message(role: .user, content: .text(text))
+        }
+
+        /// Create an assistant message with text content.
+        public static func assistant(_ text: String) -> Message {
+            Message(role: .assistant, content: .text(text))
+        }
+
+        /// Create a user message with any content type.
+        public static func user(_ content: Content) -> Message {
+            Message(role: .user, content: content)
+        }
+
+        /// Create an assistant message with any content type.
+        public static func assistant(_ content: Content) -> Message {
+            Message(role: .assistant, content: content)
         }
 
         /// Message role.

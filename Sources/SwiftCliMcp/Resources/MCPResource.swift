@@ -24,6 +24,26 @@ public struct MCPResource: Sendable {
         self.handler = handler
     }
 
+    /// Create a text resource with a simplified handler.
+    ///
+    /// The handler receives the URI and returns a String. The URI and mimeType
+    /// are automatically plumbed to `MCPResourceContents`, eliminating duplication.
+    public init(
+        uri: String,
+        name: String,
+        description: String? = nil,
+        mimeType: String? = nil,
+        textHandler: @escaping @Sendable (_ uri: String) async throws -> String
+    ) {
+        self.uri = uri
+        self.name = name
+        self.description = description
+        self.mimeType = mimeType
+        self.handler = {
+            MCPResourceContents(uri: uri, text: try await textHandler(uri), mimeType: mimeType)
+        }
+    }
+
     /// Build the resource definition for the protocol.
     func toDefinition() -> ResourceDefinition {
         return ResourceDefinition(
@@ -32,6 +52,30 @@ public struct MCPResource: Sendable {
             description: description,
             mimeType: mimeType
         )
+    }
+
+    // MARK: - Static Factories
+
+    /// Create a resource with a full handler.
+    public static func resource(
+        uri: String,
+        name: String,
+        description: String? = nil,
+        mimeType: String? = nil,
+        handler: @escaping @Sendable () async throws -> MCPResourceContents
+    ) -> MCPResource {
+        MCPResource(uri: uri, name: name, description: description, mimeType: mimeType, handler: handler)
+    }
+
+    /// Create a text resource with a simplified handler.
+    public static func resource(
+        uri: String,
+        name: String,
+        description: String? = nil,
+        mimeType: String? = nil,
+        textHandler: @escaping @Sendable (_ uri: String) async throws -> String
+    ) -> MCPResource {
+        MCPResource(uri: uri, name: name, description: description, mimeType: mimeType, textHandler: textHandler)
     }
 }
 
@@ -78,6 +122,16 @@ public struct MCPResourceTemplate: Sendable {
             description: description,
             mimeType: mimeType
         )
+    }
+
+    /// Create a resource template.
+    public static func template(
+        uriTemplate: String,
+        name: String,
+        description: String? = nil,
+        mimeType: String? = nil
+    ) -> MCPResourceTemplate {
+        MCPResourceTemplate(uriTemplate: uriTemplate, name: name, description: description, mimeType: mimeType)
     }
 }
 
