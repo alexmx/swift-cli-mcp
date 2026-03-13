@@ -7,7 +7,7 @@ public struct MCPTool: Sendable {
     public let name: String
     public let description: String
     public let inputSchema: MCPSchema
-    let handler: @Sendable (AnyCodable) async throws -> MCPToolResult
+    let handler: @Sendable (Data) async throws -> MCPToolResult
 
     /// Create a tool with strongly-typed Codable arguments.
     ///
@@ -60,15 +60,9 @@ public struct MCPTool: Sendable {
             self.inputSchema = schema
         }
 
-        // Wrap the typed handler to decode arguments
-        self.handler = { anyArgs in
-            // Encode AnyCodable to JSON Data using shared encoder
-            let jsonData = try JSONCoder.encoder.encode(anyArgs)
-
-            // Decode to the typed Arguments using shared decoder
+        // Wrap the typed handler to decode arguments from raw JSON data
+        self.handler = { jsonData in
             let typedArgs = try JSONCoder.decoder.decode(Arguments.self, from: jsonData)
-
-            // Call the typed handler
             return try await handler(typedArgs)
         }
     }
@@ -103,8 +97,7 @@ public struct MCPTool: Sendable {
             self.inputSchema = schema
         }
 
-        self.handler = { anyArgs in
-            let jsonData = try JSONCoder.encoder.encode(anyArgs)
+        self.handler = { jsonData in
             let typedArgs = try JSONCoder.decoder.decode(Arguments.self, from: jsonData)
             return try await handler(typedArgs)
         }
@@ -155,38 +148,6 @@ public struct MCPTool: Sendable {
         argumentDescription: String,
         handler: @escaping @Sendable (String) async throws -> MCPToolResult
     ) {
-        struct SingleStringArg: Codable {
-            let value: String
-
-            init(from decoder: Decoder) throws {
-                let container = try decoder.singleValueContainer()
-                // Try to decode as a string directly first
-                if let str = try? container.decode(String.self) {
-                    self.value = str
-                } else {
-                    // Fall back to keyed container with dynamic key
-                    let keyedContainer = try decoder.container(keyedBy: DynamicCodingKey.self)
-                    let key = keyedContainer.allKeys.first!
-                    self.value = try keyedContainer.decode(String.self, forKey: key)
-                }
-            }
-
-            private struct DynamicCodingKey: CodingKey {
-                var stringValue: String
-                var intValue: Int?
-
-                init?(stringValue: String) {
-                    self.stringValue = stringValue
-                    self.intValue = nil
-                }
-
-                init?(intValue: Int) {
-                    self.stringValue = "\(intValue)"
-                    self.intValue = intValue
-                }
-            }
-        }
-
         self.init(
             name: name,
             description: description,

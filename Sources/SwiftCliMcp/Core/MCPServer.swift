@@ -1,6 +1,17 @@
 import Atomics
 import Foundation
 
+/// Serializes all writes to stdout so concurrent request handlers
+/// cannot interleave output and produce malformed JSON-RPC messages.
+private actor OutputWriter {
+    private let handle = FileHandle.standardOutput
+
+    func write(_ data: Data) {
+        handle.write(data)
+        handle.write(Data("\n".utf8))
+    }
+}
+
 /// A reusable MCP server that communicates via JSON-RPC 2.0 over stdio.
 ///
 /// Usage:
@@ -24,6 +35,12 @@ public struct MCPServer: Sendable {
 
     /// Atomic shutdown flag for signal handling
     private static let shouldShutdown = ManagedAtomic<Bool>(false)
+
+    /// Shared output writer for serialized stdout access
+    private let writer = OutputWriter()
+
+    /// Maximum number of concurrent request handlers.
+    private let maxConcurrentRequests = 16
 
     public init(
         name: String,
@@ -49,38 +66,59 @@ public struct MCPServer: Sendable {
     }
 
     /// Start the stdio loop. Blocks until stdin closes or receives shutdown signal.
+    /// Requests are dispatched concurrently so slow tool handlers do not block
+    /// other pending requests.
     public func run() async {
         log("MCP server '\(name)' v\(version) starting with \(tools.count) tool(s), \(resources.count) resource(s)")
 
-        setupSignalHandlers()
+        let signalSources = setupSignalHandlers()
+        defer { signalSources.forEach { $0.cancel() } }
 
-        do {
-            for try await line in FileHandle.standardInput.bytes.lines {
-                // Check for cancellation or shutdown signal
-                if Task.isCancelled || Self.shouldShutdown.load(ordering: .relaxed) {
-                    log("Shutting down gracefully")
-                    break
+        await withTaskGroup(of: Void.self) { group in
+            var inFlight = 0
+
+            do {
+                for try await line in FileHandle.standardInput.bytes.lines {
+                    // Check for cancellation or shutdown signal
+                    if Task.isCancelled || Self.shouldShutdown.load(ordering: .relaxed) {
+                        log("Shutting down gracefully")
+                        break
+                    }
+
+                    guard !line.isEmpty else { continue }
+
+                    guard let data = line.data(using: .utf8),
+                          let request = JSONRPCParser.parse(data)
+                    else {
+                        await write(JSONRPCResponse.error(id: nil, code: MCPConstants.parseError, message: "Parse error"))
+                        continue
+                    }
+
+                    // Notifications have no id and expect no response
+                    if request.isNotification {
+                        handleNotification(request)
+                        continue
+                    }
+
+                    // Apply back-pressure: wait for a slot before dispatching
+                    if inFlight >= maxConcurrentRequests {
+                        await group.next()
+                        inFlight -= 1
+                    }
+
+                    // Dispatch request handling concurrently so slow tools
+                    // don't block other incoming requests
+                    group.addTask {
+                        let response = await self.handleRequest(request)
+                        await self.write(response)
+                    }
+                    inFlight += 1
                 }
-
-                guard !line.isEmpty else { continue }
-
-                guard let data = line.data(using: .utf8),
-                      let request = JSONRPCParser.parse(data) else {
-                    write(JSONRPCResponse.error(id: nil, code: MCPConstants.parseError, message: "Parse error"))
-                    continue
-                }
-
-                // Notifications have no id and expect no response
-                if request.isNotification {
-                    handleNotification(request)
-                    continue
-                }
-
-                let response = await handleRequest(request)
-                write(response)
+            } catch {
+                log("stdin error: \(error)")
             }
-        } catch {
-            log("stdin error: \(error)")
+
+            // Wait for all in-flight request handlers to finish
         }
 
         log("stdin closed, shutting down")
@@ -88,26 +126,26 @@ public struct MCPServer: Sendable {
 
     // MARK: - Signal Handling
 
-    private func setupSignalHandlers() {
-        // Reset shutdown flag
+    private func setupSignalHandlers() -> [DispatchSourceSignal] {
         Self.shouldShutdown.store(false, ordering: .relaxed)
 
-        // Set up signal sources for SIGTERM and SIGINT
-        let signals = [SIGTERM, SIGINT]
-        for sig in signals {
+        return [SIGTERM, SIGINT].map { sig in
             signal(sig, SIG_IGN) // Required before using DispatchSource
             let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
             source.setEventHandler {
                 Self.shouldShutdown.store(true, ordering: .relaxed)
+                // Close stdin to unblock the async line iteration in run()
+                try? FileHandle.standardInput.close()
             }
             source.resume()
+            return source
         }
     }
 
     // MARK: - Logging
 
     /// Send a log message to the client via notifications/message.
-    public func sendLog(level: LogLevel, message: String, logger: String? = nil) {
+    public func sendLog(level: LogLevel, message: String, logger: String? = nil) async {
         let notification = LogNotification(
             params: LogMessageParams(
                 level: level.rawValue,
@@ -117,7 +155,7 @@ public struct MCPServer: Sendable {
         )
 
         if let data = try? JSONCoder.encoder.encode(notification) {
-            write(data)
+            await write(data)
         }
     }
 
@@ -135,9 +173,8 @@ public struct MCPServer: Sendable {
 
     // MARK: - I/O
 
-    func write(_ data: Data) {
-        FileHandle.standardOutput.write(data)
-        FileHandle.standardOutput.write(Data("\n".utf8))
+    func write(_ data: Data) async {
+        await writer.write(data)
     }
 
     func log(_ message: String) {

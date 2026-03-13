@@ -1,18 +1,5 @@
 import Foundation
 
-// MARK: - Request Parameters
-
-/// Parameters for tools/call request
-struct ToolCallParams: Codable, Sendable {
-    let name: String
-    let arguments: [String: AnyCodable]?
-}
-
-/// Parameters for resources/read request
-struct ResourceReadParams: Codable, Sendable {
-    let uri: String
-}
-
 // MARK: - Response Types
 
 /// Response for initialize request
@@ -107,7 +94,7 @@ struct LogMessageParams: Codable, Sendable {
 }
 
 /// Notification for logging
-struct LogNotification: Codable, Sendable {
+struct LogNotification: Encodable, Sendable {
     let jsonrpc: String = "2.0"
     let method: String = "notifications/message"
     let params: LogMessageParams
