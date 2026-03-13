@@ -122,6 +122,8 @@ public struct MCPServer: Sendable {
             let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
             source.setEventHandler {
                 Self.shouldShutdown.store(true, ordering: .relaxed)
+                // Close stdin to unblock the async line iteration in run()
+                try? FileHandle.standardInput.close()
             }
             source.resume()
             return source
