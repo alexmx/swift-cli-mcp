@@ -39,6 +39,9 @@ public struct MCPServer: Sendable {
     /// Shared output writer for serialized stdout access
     private let writer = OutputWriter()
 
+    /// Maximum number of concurrent request handlers.
+    private let maxConcurrentRequests = 16
+
     public init(
         name: String,
         version: String,
@@ -72,6 +75,8 @@ public struct MCPServer: Sendable {
         defer { signalSources.forEach { $0.cancel() } }
 
         await withTaskGroup(of: Void.self) { group in
+            var inFlight = 0
+
             do {
                 for try await line in FileHandle.standardInput.bytes.lines {
                     // Check for cancellation or shutdown signal
@@ -95,12 +100,19 @@ public struct MCPServer: Sendable {
                         continue
                     }
 
+                    // Apply back-pressure: wait for a slot before dispatching
+                    if inFlight >= maxConcurrentRequests {
+                        await group.next()
+                        inFlight -= 1
+                    }
+
                     // Dispatch request handling concurrently so slow tools
                     // don't block other incoming requests
                     group.addTask {
                         let response = await self.handleRequest(request)
                         await self.write(response)
                     }
+                    inFlight += 1
                 }
             } catch {
                 log("stdin error: \(error)")
