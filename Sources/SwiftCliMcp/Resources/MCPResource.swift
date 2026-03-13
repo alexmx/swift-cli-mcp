@@ -44,6 +44,26 @@ public struct MCPResource: Sendable {
         }
     }
 
+    /// Create a binary resource with a simplified handler.
+    ///
+    /// The handler receives the URI and returns Data. The URI and mimeType
+    /// are automatically plumbed to `MCPResourceContents`, eliminating duplication.
+    public init(
+        uri: String,
+        name: String,
+        description: String? = nil,
+        mimeType: String? = nil,
+        blobHandler: @escaping @Sendable (_ uri: String) async throws -> Data
+    ) {
+        self.uri = uri
+        self.name = name
+        self.description = description
+        self.mimeType = mimeType
+        self.handler = {
+            MCPResourceContents(uri: uri, blob: try await blobHandler(uri), mimeType: mimeType ?? "application/octet-stream")
+        }
+    }
+
     /// Build the resource definition for the protocol.
     func toDefinition() -> ResourceDefinition {
         return ResourceDefinition(
@@ -76,6 +96,17 @@ public struct MCPResource: Sendable {
         textHandler: @escaping @Sendable (_ uri: String) async throws -> String
     ) -> MCPResource {
         MCPResource(uri: uri, name: name, description: description, mimeType: mimeType, textHandler: textHandler)
+    }
+
+    /// Create a binary resource with a simplified handler.
+    public static func resource(
+        uri: String,
+        name: String,
+        description: String? = nil,
+        mimeType: String? = nil,
+        blobHandler: @escaping @Sendable (_ uri: String) async throws -> Data
+    ) -> MCPResource {
+        MCPResource(uri: uri, name: name, description: description, mimeType: mimeType, blobHandler: blobHandler)
     }
 }
 
