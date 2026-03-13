@@ -68,7 +68,8 @@ public struct MCPServer: Sendable {
     public func run() async {
         log("MCP server '\(name)' v\(version) starting with \(tools.count) tool(s), \(resources.count) resource(s)")
 
-        setupSignalHandlers()
+        let signalSources = setupSignalHandlers()
+        defer { signalSources.forEach { $0.cancel() } }
 
         do {
             try await withThrowingTaskGroup(of: Void.self) { group in
@@ -113,19 +114,17 @@ public struct MCPServer: Sendable {
 
     // MARK: - Signal Handling
 
-    private func setupSignalHandlers() {
-        // Reset shutdown flag
+    private func setupSignalHandlers() -> [DispatchSourceSignal] {
         Self.shouldShutdown.store(false, ordering: .relaxed)
 
-        // Set up signal sources for SIGTERM and SIGINT
-        let signals = [SIGTERM, SIGINT]
-        for sig in signals {
+        return [SIGTERM, SIGINT].map { sig in
             signal(sig, SIG_IGN) // Required before using DispatchSource
             let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
             source.setEventHandler {
                 Self.shouldShutdown.store(true, ordering: .relaxed)
             }
             source.resume()
+            return source
         }
     }
 
