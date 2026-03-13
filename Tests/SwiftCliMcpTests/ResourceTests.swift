@@ -40,11 +40,7 @@ struct ResourceTests {
 
     @Test("Resource contents - text")
     func resourceContentsText() {
-        let contents = MCPResourceContents(
-            uri: "test://file",
-            text: "Hello, world!",
-            mimeType: "text/plain"
-        )
+        let contents = MCPResourceContents.text(uri: "test://file", "Hello, world!", mimeType: "text/plain")
         let item = contents.toProtocolItem()
 
         #expect(item.uri == "test://file")
@@ -56,11 +52,7 @@ struct ResourceTests {
     @Test("Resource contents - blob")
     func resourceContentsBlob() {
         let data = Data([0x01, 0x02, 0x03])
-        let contents = MCPResourceContents(
-            uri: "test://binary",
-            blob: data,
-            mimeType: "application/octet-stream"
-        )
+        let contents = MCPResourceContents.blob(uri: "test://binary", data, mimeType: "application/octet-stream")
         let item = contents.toProtocolItem()
 
         #expect(item.uri == "test://binary")

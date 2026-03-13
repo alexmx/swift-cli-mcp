@@ -166,7 +166,7 @@ Expose files, logs, or dynamic data:
     let stats = """
     {"cpu": \(ProcessInfo.processInfo.processorCount)}
     """
-    return MCPResourceContents(uri: "system://stats", text: stats, mimeType: "application/json")
+    return .text(uri: "system://stats", stats, mimeType: "application/json")
 }
 ```
 

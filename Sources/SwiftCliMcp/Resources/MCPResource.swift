@@ -198,4 +198,16 @@ public struct MCPResourceContents: Sendable {
             blob: blob
         )
     }
+
+    // MARK: - Static Factories
+
+    /// Create text resource contents.
+    public static func text(uri: String, _ text: String, mimeType: String? = "text/plain") -> MCPResourceContents {
+        MCPResourceContents(uri: uri, text: text, mimeType: mimeType)
+    }
+
+    /// Create binary resource contents.
+    public static func blob(uri: String, _ blob: Data, mimeType: String) -> MCPResourceContents {
+        MCPResourceContents(uri: uri, blob: blob, mimeType: mimeType)
+    }
 }
