@@ -38,17 +38,11 @@ private func makeServer() -> MCPServer {
         version: "1.0.0",
         description: "Test server",
         tools: [
-            MCPTool(
-                name: "echo",
-                description: "Echo back the input"
-            ) { (args: EchoArgs) in
+            .tool(name: "echo", description: "Echo back the input") { (args: EchoArgs) in
                 .text("Echo: \(args.message)")
             },
 
-            MCPTool(
-                name: "divide",
-                description: "Divide two numbers"
-            ) { (args: DivideArgs) in
+            .tool(name: "divide", description: "Divide two numbers") { (args: DivideArgs) in
                 guard args.b != 0 else {
                     throw NSError(
                         domain: "test",
@@ -59,79 +53,45 @@ private func makeServer() -> MCPServer {
                 return .text("Result: \(args.a / args.b)")
             },
 
-            MCPTool(
-                name: "ping",
-                description: "Ping"
-            ) {
+            .tool(name: "ping", description: "Ping") {
                 .text("pong")
             },
 
-            MCPTool(
-                name: "greet",
-                description: "Greet by name",
-                argumentName: "name",
-                argumentDescription: "Name to greet"
-            ) { name in
+            .tool(name: "greet", description: "Greet by name", argumentName: "name", argumentDescription: "Name to greet") { name in
                 .text("Hello, \(name)!")
             }
         ],
         resources: [
-            MCPResource(
-                uri: "test://readme",
-                name: "README",
-                description: "A readme",
-                mimeType: "text/plain"
-            ) {
-                MCPResourceContents(uri: "test://readme", text: "# README")
+            .resource(uri: "test://readme", name: "README", description: "A readme", mimeType: "text/plain") { _ in
+                "# README"
             },
 
-            MCPResource(
-                uri: "test://failing",
-                name: "Failing",
-                description: "Always fails"
-            ) {
+            .resource(uri: "test://failing", name: "Failing", description: "Always fails") {
                 throw NSError(domain: "test", code: 2, userInfo: [NSLocalizedDescriptionKey: "Resource error"])
             }
         ],
         resourceTemplates: [
-            MCPResourceTemplate(
-                uriTemplate: "file:///{path}",
-                name: "Project Files",
-                description: "Read any project file",
-                mimeType: "text/plain"
-            ),
-            MCPResourceTemplate(
-                uriTemplate: "db:///{table}/{id}",
-                name: "Database Records",
-                description: "Read a database record"
-            )
+            .template(uriTemplate: "file:///{path}", name: "Project Files", description: "Read any project file", mimeType: "text/plain"),
+            .template(uriTemplate: "db:///{table}/{id}", name: "Database Records", description: "Read a database record")
         ],
         prompts: [
-            MCPPrompt(
+            .prompt(
                 name: "code_review",
                 description: "Review code for issues",
                 arguments: [
-                    .init(name: "code", description: "The code to review", required: true),
-                    .init(name: "language", description: "Programming language")
+                    .required(name: "code", description: "The code to review"),
+                    .optional(name: "language", description: "Programming language")
                 ]
             ) { args in
                 let code = args["code"] ?? ""
                 let lang = args["language"] ?? "unknown"
-                return MCPPromptResult(
-                    description: "Code review prompt",
-                    messages: [
-                        .init(role: .user, content: .text("Review this \(lang) code:\n\(code)"))
-                    ]
-                )
+                return .userMessage("Review this \(lang) code:\n\(code)", description: "Code review prompt")
             },
 
-            MCPPrompt(
-                name: "summarize",
-                description: "Summarize text"
-            ) { args in
+            .prompt(name: "summarize", description: "Summarize text") { _ in
                 MCPPromptResult(messages: [
-                    .init(role: .user, content: .text("Summarize the following.")),
-                    .init(role: .assistant, content: .text("I'll summarize that for you."))
+                    .user("Summarize the following."),
+                    .assistant("I'll summarize that for you.")
                 ])
             }
         ]

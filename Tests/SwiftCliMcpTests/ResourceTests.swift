@@ -6,13 +6,13 @@ import Testing
 struct ResourceTests {
     @Test("Resource definition")
     func resourceDefinition() {
-        let resource = MCPResource(
+        let resource = MCPResource.resource(
             uri: "file:///test.txt",
             name: "Test File",
             description: "A test file",
             mimeType: "text/plain"
-        ) {
-            MCPResourceContents(uri: "file:///test.txt", text: "content")
+        ) { _ in
+            "content"
         }
 
         let def = resource.toDefinition()
@@ -24,11 +24,11 @@ struct ResourceTests {
 
     @Test("Resource definition with optional fields")
     func resourceDefinitionOptional() {
-        let resource = MCPResource(
+        let resource = MCPResource.resource(
             uri: "test://resource",
             name: "Resource"
-        ) {
-            MCPResourceContents(uri: "test://resource", text: "data")
+        ) { _ in
+            "data"
         }
 
         let def = resource.toDefinition()
@@ -71,11 +71,11 @@ struct ResourceTests {
 
     @Test("Resource handler execution")
     func resourceHandler() async throws {
-        let resource = MCPResource(
+        let resource = MCPResource.resource(
             uri: "test://dynamic",
             name: "Dynamic"
-        ) {
-            return MCPResourceContents(uri: "test://dynamic", text: "generated at \(Date())")
+        ) { _ in
+            "generated at \(Date())"
         }
 
         let contents = try await resource.handler()
