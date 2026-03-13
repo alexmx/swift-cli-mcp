@@ -1,18 +1,5 @@
 import Foundation
 
-// MARK: - Request Parameters
-
-/// Parameters for tools/call request
-struct ToolCallParams: Codable, Sendable {
-    let name: String
-    let arguments: [String: AnyCodable]?
-}
-
-/// Parameters for resources/read request
-struct ResourceReadParams: Codable, Sendable {
-    let uri: String
-}
-
 // MARK: - Response Types
 
 /// Response for initialize request
