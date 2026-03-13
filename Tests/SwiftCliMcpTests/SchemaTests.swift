@@ -2,6 +2,11 @@ import Foundation
 @testable import SwiftMCP
 import Testing
 
+/// Encode a dictionary to JSON Data for passing to tool handlers in tests.
+private func jsonData(_ dict: [String: Any]) -> Data {
+    try! JSONCoder.encoder.encode(AnyCodable(dict))
+}
+
 @Suite("Schema and Tool")
 struct SchemaTests {
     // MARK: - Typed Schema Tests
@@ -148,7 +153,7 @@ struct SchemaTests {
         }
 
         // Test with all fields
-        let result1 = try await tool.handler(AnyCodable(["name": "Alice", "age": 30] as [String: Any]))
+        let result1 = try await tool.handler(jsonData(["name": "Alice", "age": 30] as [String: Any]))
         guard case .text(let text1) = result1 else {
             Issue.record("Expected text result")
             return
@@ -156,7 +161,7 @@ struct SchemaTests {
         #expect(text1 == "Hello Alice age 30")
 
         // Test with optional field missing
-        let result2 = try await tool.handler(AnyCodable(["name": "Bob"] as [String: Any]))
+        let result2 = try await tool.handler(jsonData(["name": "Bob"] as [String: Any]))
         guard case .text(let text2) = result2 else {
             Issue.record("Expected text result")
             return
@@ -182,7 +187,7 @@ struct SchemaTests {
         }
 
         // Valid argument
-        let result = try await tool.handler(AnyCodable(["count": 42] as [String: Any]))
+        let result = try await tool.handler(jsonData(["count": 42] as [String: Any]))
         guard case .text(let text) = result else {
             Issue.record("Expected text result")
             return
@@ -191,7 +196,7 @@ struct SchemaTests {
 
         // Invalid type should throw
         do {
-            _ = try await tool.handler(AnyCodable(["count": "not a number"] as [String: Any]))
+            _ = try await tool.handler(jsonData(["count": "not a number"] as [String: Any]))
             Issue.record("Should have thrown decoding error")
         } catch {
             // Expected - decoding error
@@ -218,7 +223,7 @@ struct SchemaTests {
 
         // Missing required field should throw
         do {
-            _ = try await tool.handler(AnyCodable([:] as [String: Any]))
+            _ = try await tool.handler(jsonData([:] as [String: Any]))
             Issue.record("Should have thrown decoding error")
         } catch {
             #expect(error is DecodingError)
@@ -363,7 +368,7 @@ struct SchemaTests {
         #expect(def.inputSchema.required?.count == 2)
 
         // Verify handler still works
-        let result = try await tool.handler(AnyCodable(["a": 3.0, "b": 4.0] as [String: Any]))
+        let result = try await tool.handler(jsonData(["a": 3.0, "b": 4.0] as [String: Any]))
         guard case .text(let text) = result else {
             Issue.record("Expected text result")
             return
@@ -492,7 +497,7 @@ struct SchemaTests {
         #expect(def.inputSchema.properties?["b"]?.description == "Second number")
         #expect(def.inputSchema.required?.count == 2)
 
-        let result = try await tool.handler(AnyCodable(["a": 10.0, "b": 2.0] as [String: Any]))
+        let result = try await tool.handler(jsonData(["a": 10.0, "b": 2.0] as [String: Any]))
         guard case .text(let text) = result else {
             Issue.record("Expected text result")
             return
@@ -518,7 +523,7 @@ struct SchemaTests {
         }
 
         // Key missing entirely — should decode to nil, not throw
-        let result = try await tool.handler(AnyCodable(["name": "Alice"] as [String: Any]))
+        let result = try await tool.handler(jsonData(["name": "Alice"] as [String: Any]))
         guard case .text(let text) = result else {
             Issue.record("Expected text result")
             return
@@ -526,7 +531,7 @@ struct SchemaTests {
         #expect(text == "name=Alice tag=nil")
 
         // Key present — should decode normally
-        let result2 = try await tool.handler(AnyCodable(["name": "Bob", "tag": "admin"] as [String: Any]))
+        let result2 = try await tool.handler(jsonData(["name": "Bob", "tag": "admin"] as [String: Any]))
         guard case .text(let text2) = result2 else {
             Issue.record("Expected text result")
             return
@@ -553,7 +558,7 @@ struct SchemaTests {
             return .text("\(args.name) from \(args.address.city)")
         }
 
-        let result = try await tool.handler(AnyCodable([
+        let result = try await tool.handler(jsonData([
             "name": "Alice",
             "address": [
                 "street": "123 Main St",

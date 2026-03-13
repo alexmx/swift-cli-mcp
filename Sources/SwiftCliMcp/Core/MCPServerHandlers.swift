@@ -129,13 +129,13 @@ extension MCPServer {
             return JSONRPCResponse.error(id: id, code: MCPConstants.invalidParams, message: "Unknown tool: \(name)")
         }
 
-        // Extract arguments directly (already in the right format)
+        // Serialize arguments to JSON Data for the typed handler
         let paramsDict = params?.value as? [String: Any] ?? [:]
         let argumentsDict = paramsDict["arguments"] as? [String: Any] ?? [:]
-        let arguments = AnyCodable(argumentsDict)
+        let argumentsData = try? JSONCoder.encoder.encode(AnyCodable(argumentsDict))
 
         do {
-            let toolResult = try await tool.handler(arguments)
+            let toolResult = try await tool.handler(argumentsData ?? Data("{}".utf8))
             let response = ToolCallResponse(
                 content: toolResult.contentArray,
                 isError: false

@@ -7,7 +7,7 @@ public struct MCPTool: Sendable {
     public let name: String
     public let description: String
     public let inputSchema: MCPSchema
-    let handler: @Sendable (AnyCodable) async throws -> MCPToolResult
+    let handler: @Sendable (Data) async throws -> MCPToolResult
 
     /// Create a tool with strongly-typed Codable arguments.
     ///
@@ -60,15 +60,9 @@ public struct MCPTool: Sendable {
             self.inputSchema = schema
         }
 
-        // Wrap the typed handler to decode arguments
-        self.handler = { anyArgs in
-            // Encode AnyCodable to JSON Data using shared encoder
-            let jsonData = try JSONCoder.encoder.encode(anyArgs)
-
-            // Decode to the typed Arguments using shared decoder
+        // Wrap the typed handler to decode arguments from raw JSON data
+        self.handler = { jsonData in
             let typedArgs = try JSONCoder.decoder.decode(Arguments.self, from: jsonData)
-
-            // Call the typed handler
             return try await handler(typedArgs)
         }
     }
@@ -103,8 +97,7 @@ public struct MCPTool: Sendable {
             self.inputSchema = schema
         }
 
-        self.handler = { anyArgs in
-            let jsonData = try JSONCoder.encoder.encode(anyArgs)
+        self.handler = { jsonData in
             let typedArgs = try JSONCoder.decoder.decode(Arguments.self, from: jsonData)
             return try await handler(typedArgs)
         }
