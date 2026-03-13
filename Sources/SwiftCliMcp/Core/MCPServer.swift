@@ -258,3 +258,6 @@ public struct MCPServer: Sendable {
         logHandler?(message)
     }
 }
+
+/// Convenience alias so `MCPLogLevel` can be used without qualifying `MCPServer`.
+public typealias MCPLogLevel = MCPServer.LogLevel
