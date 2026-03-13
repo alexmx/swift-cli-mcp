@@ -155,38 +155,6 @@ public struct MCPTool: Sendable {
         argumentDescription: String,
         handler: @escaping @Sendable (String) async throws -> MCPToolResult
     ) {
-        struct SingleStringArg: Codable {
-            let value: String
-
-            init(from decoder: Decoder) throws {
-                let container = try decoder.singleValueContainer()
-                // Try to decode as a string directly first
-                if let str = try? container.decode(String.self) {
-                    self.value = str
-                } else {
-                    // Fall back to keyed container with dynamic key
-                    let keyedContainer = try decoder.container(keyedBy: DynamicCodingKey.self)
-                    let key = keyedContainer.allKeys.first!
-                    self.value = try keyedContainer.decode(String.self, forKey: key)
-                }
-            }
-
-            private struct DynamicCodingKey: CodingKey {
-                var stringValue: String
-                var intValue: Int?
-
-                init?(stringValue: String) {
-                    self.stringValue = stringValue
-                    self.intValue = nil
-                }
-
-                init?(intValue: Int) {
-                    self.stringValue = "\(intValue)"
-                    self.intValue = intValue
-                }
-            }
-        }
-
         self.init(
             name: name,
             description: description,
