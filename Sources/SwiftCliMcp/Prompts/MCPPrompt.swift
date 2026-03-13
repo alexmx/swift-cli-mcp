@@ -115,9 +115,9 @@ public struct MCPPromptResult: Sendable {
     /// A single message in a prompt result.
     public struct Message: Sendable {
         public let role: Role
-        public let content: Content
+        public let content: MCPContent
 
-        public init(role: Role, content: Content) {
+        public init(role: Role, content: MCPContent) {
             self.role = role
             self.content = content
         }
@@ -133,12 +133,12 @@ public struct MCPPromptResult: Sendable {
         }
 
         /// Create a user message with any content type.
-        public static func user(_ content: Content) -> Message {
+        public static func user(_ content: MCPContent) -> Message {
             Message(role: .user, content: content)
         }
 
         /// Create an assistant message with any content type.
-        public static func assistant(_ content: Content) -> Message {
+        public static func assistant(_ content: MCPContent) -> Message {
             Message(role: .assistant, content: content)
         }
 
@@ -146,13 +146,6 @@ public struct MCPPromptResult: Sendable {
         public enum Role: String, Sendable {
             case user
             case assistant
-        }
-
-        /// Message content.
-        public enum Content: Sendable {
-            case text(String)
-            case image(data: Data, mimeType: String)
-            case resource(uri: String, text: String, mimeType: String?)
         }
     }
 }

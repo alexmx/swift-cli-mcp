@@ -242,8 +242,8 @@ extension MCPServer {
                     content = .text(text)
                 case .image(let data, let mimeType):
                     content = .image(data: data.base64EncodedString(), mimeType: mimeType)
-                case .resource(let uri, let text, let mimeType):
-                    content = .resource(uri: uri, text: text, mimeType: mimeType)
+                case .resource(let uri, let mimeType, let text):
+                    content = .resource(uri: uri, text: text ?? "", mimeType: mimeType)
                 }
                 return PromptMessageItem(role: msg.role.rawValue, content: content)
             }
