@@ -17,9 +17,12 @@ swift run test-server
 # Format code (required before commits)
 swiftformat .
 
-# Test the server interactively
+# Test the server with real MCP requests (run after swift build)
+# Covers all MCP methods, happy paths, and error cases
 ./scripts/test_mcp.sh
 ```
+
+**Important:** After making changes, always run both `swift test` (unit tests) and `./scripts/test_mcp.sh` (integration tests against the test server) to validate.
 
 ## Architecture
 
