@@ -94,7 +94,7 @@ struct LogMessageParams: Codable, Sendable {
 }
 
 /// Notification for logging
-struct LogNotification: Codable, Sendable {
+struct LogNotification: Encodable, Sendable {
     let jsonrpc: String = "2.0"
     let method: String = "notifications/message"
     let params: LogMessageParams
