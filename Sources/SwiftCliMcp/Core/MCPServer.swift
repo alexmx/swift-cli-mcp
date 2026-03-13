@@ -29,8 +29,10 @@ public struct MCPServer: Sendable {
     public let description: String?
     public let tools: [MCPTool]
     public let resources: [MCPResource]
+    public let prompts: [MCPPrompt]
     let toolsByName: [String: MCPTool]
     let resourcesByUri: [String: MCPResource]
+    let promptsByName: [String: MCPPrompt]
     let logHandler: (@Sendable (String) -> Void)?
 
     /// Atomic shutdown flag for signal handling
@@ -48,6 +50,7 @@ public struct MCPServer: Sendable {
         description: String? = nil,
         tools: [MCPTool] = [],
         resources: [MCPResource] = [],
+        prompts: [MCPPrompt] = [],
         logHandler: (@Sendable (String) -> Void)? = nil
     ) {
         self.name = name
@@ -55,11 +58,15 @@ public struct MCPServer: Sendable {
         self.description = description
         self.tools = tools
         self.resources = resources
+        self.prompts = prompts
         self.toolsByName = tools.reduce(into: [:]) { dict, tool in
             dict[tool.name] = tool
         }
         self.resourcesByUri = resources.reduce(into: [:]) { dict, resource in
             dict[resource.uri] = resource
+        }
+        self.promptsByName = prompts.reduce(into: [:]) { dict, prompt in
+            dict[prompt.name] = prompt
         }
 
         self.logHandler = logHandler
@@ -69,7 +76,7 @@ public struct MCPServer: Sendable {
     /// Requests are dispatched concurrently so slow tool handlers do not block
     /// other pending requests.
     public func run() async {
-        log("MCP server '\(name)' v\(version) starting with \(tools.count) tool(s), \(resources.count) resource(s)")
+        log("MCP server '\(name)' v\(version) starting with \(tools.count) tool(s), \(resources.count) resource(s), \(prompts.count) prompt(s)")
 
         let signalSources = setupSignalHandlers()
         defer { signalSources.forEach { $0.cancel() } }

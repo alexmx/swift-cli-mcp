@@ -92,6 +92,35 @@ private func makeServer() -> MCPServer {
             ) {
                 throw NSError(domain: "test", code: 2, userInfo: [NSLocalizedDescriptionKey: "Resource error"])
             }
+        ],
+        prompts: [
+            MCPPrompt(
+                name: "code_review",
+                description: "Review code for issues",
+                arguments: [
+                    .init(name: "code", description: "The code to review", required: true),
+                    .init(name: "language", description: "Programming language")
+                ]
+            ) { args in
+                let code = args["code"] ?? ""
+                let lang = args["language"] ?? "unknown"
+                return MCPPromptResult(
+                    description: "Code review prompt",
+                    messages: [
+                        .init(role: .user, content: .text("Review this \(lang) code:\n\(code)"))
+                    ]
+                )
+            },
+
+            MCPPrompt(
+                name: "summarize",
+                description: "Summarize text"
+            ) { args in
+                MCPPromptResult(messages: [
+                    .init(role: .user, content: .text("Summarize the following.")),
+                    .init(role: .assistant, content: .text("I'll summarize that for you."))
+                ])
+            }
         ]
     )
 }
@@ -313,5 +342,98 @@ struct HandlerTests {
         } catch {
             #expect(String(describing: error).contains("Missing required argument"))
         }
+    }
+
+    // MARK: - Prompts
+
+    @Test("prompts/list returns all registered prompts")
+    func promptsList() async throws {
+        let response = await server.handleRequest(
+            request(#"{"jsonrpc":"2.0","id":20,"method":"prompts/list","params":{}}"#)
+        )
+        let json = try decodeResponse(response)
+        let result = try #require(json["result"] as? [String: Any])
+        let prompts = try #require(result["prompts"] as? [[String: Any]])
+
+        #expect(prompts.count == 2)
+        let names = prompts.compactMap { $0["name"] as? String }
+        #expect(names.contains("code_review"))
+        #expect(names.contains("summarize"))
+
+        // Verify arguments are included
+        let codeReview = try #require(prompts.first { $0["name"] as? String == "code_review" })
+        let args = try #require(codeReview["arguments"] as? [[String: Any]])
+        #expect(args.count == 2)
+        #expect(args[0]["name"] as? String == "code")
+        #expect(args[0]["required"] as? Bool == true)
+    }
+
+    @Test("prompts/get with valid name and arguments returns messages")
+    func promptsGetSuccess() async throws {
+        let response = await server.handleRequest(
+            request(#"{"jsonrpc":"2.0","id":21,"method":"prompts/get","params":{"name":"code_review","arguments":{"code":"fn main()","language":"rust"}}}"#)
+        )
+        let json = try decodeResponse(response)
+        let result = try #require(json["result"] as? [String: Any])
+
+        #expect(result["description"] as? String == "Code review prompt")
+        let messages = try #require(result["messages"] as? [[String: Any]])
+        #expect(messages.count == 1)
+        #expect(messages[0]["role"] as? String == "user")
+
+        let content = try #require(messages[0]["content"] as? [String: Any])
+        #expect(content["type"] as? String == "text")
+        let text = try #require(content["text"] as? String)
+        #expect(text.contains("rust"))
+        #expect(text.contains("fn main()"))
+    }
+
+    @Test("prompts/get with multiple messages returns all roles")
+    func promptsGetMultipleMessages() async throws {
+        let response = await server.handleRequest(
+            request(#"{"jsonrpc":"2.0","id":22,"method":"prompts/get","params":{"name":"summarize"}}"#)
+        )
+        let json = try decodeResponse(response)
+        let result = try #require(json["result"] as? [String: Any])
+        let messages = try #require(result["messages"] as? [[String: Any]])
+
+        #expect(messages.count == 2)
+        #expect(messages[0]["role"] as? String == "user")
+        #expect(messages[1]["role"] as? String == "assistant")
+    }
+
+    @Test("prompts/get with unknown name returns error")
+    func promptsGetUnknown() async throws {
+        let response = await server.handleRequest(
+            request(#"{"jsonrpc":"2.0","id":23,"method":"prompts/get","params":{"name":"nonexistent"}}"#)
+        )
+        let json = try decodeResponse(response)
+        let error = try #require(json["error"] as? [String: Any])
+
+        #expect(error["code"] as? Int == MCPConstants.invalidParams)
+        #expect((error["message"] as? String)?.contains("nonexistent") == true)
+    }
+
+    @Test("prompts/get with missing name returns error")
+    func promptsGetMissingName() async throws {
+        let response = await server.handleRequest(
+            request(#"{"jsonrpc":"2.0","id":24,"method":"prompts/get","params":{}}"#)
+        )
+        let json = try decodeResponse(response)
+        let error = try #require(json["error"] as? [String: Any])
+
+        #expect(error["code"] as? Int == MCPConstants.invalidParams)
+    }
+
+    @Test("initialize includes prompts capability when prompts registered")
+    func initializeWithPrompts() async throws {
+        let response = await server.handleRequest(
+            request(#"{"jsonrpc":"2.0","id":25,"method":"initialize","params":{}}"#)
+        )
+        let json = try decodeResponse(response)
+        let result = try #require(json["result"] as? [String: Any])
+        let capabilities = try #require(result["capabilities"] as? [String: Any])
+
+        #expect(capabilities["prompts"] != nil)
     }
 }
