@@ -47,6 +47,15 @@ actor TaskTracker {
     }
 }
 
+/// Stores the minimum log level, adjustable via logging/setLevel.
+actor LogLevelStore {
+    var level: MCPServer.LogLevel = .debug
+
+    func set(_ level: MCPServer.LogLevel) {
+        self.level = level
+    }
+}
+
 /// A reusable MCP server that communicates via JSON-RPC 2.0 over stdio.
 ///
 /// Usage:
@@ -78,6 +87,9 @@ public struct MCPServer: Sendable {
 
     /// Tracks in-flight request tasks for cancellation support.
     let taskTracker = TaskTracker()
+
+    /// Stores the minimum log level set by the client via logging/setLevel.
+    let logLevelStore = LogLevelStore()
 
     /// Maximum number of concurrent request handlers.
     private let maxConcurrentRequests = 16
@@ -186,7 +198,11 @@ public struct MCPServer: Sendable {
     // MARK: - Logging
 
     /// Send a log message to the client via notifications/message.
+    /// Messages below the minimum level set by `logging/setLevel` are filtered.
     public func sendLog(level: LogLevel, message: String, logger: String? = nil) async {
+        let minLevel = await logLevelStore.level
+        guard level >= minLevel else { return }
+
         let notification = LogNotification(
             params: LogMessageParams(
                 level: level.rawValue,
@@ -200,8 +216,8 @@ public struct MCPServer: Sendable {
         }
     }
 
-    /// Log levels for MCP logging.
-    public enum LogLevel: String, Sendable {
+    /// Log levels for MCP logging, ordered by severity (RFC 5424).
+    public enum LogLevel: String, Sendable, Comparable {
         case debug
         case info
         case notice
@@ -210,6 +226,23 @@ public struct MCPServer: Sendable {
         case critical
         case alert
         case emergency
+
+        private var severity: Int {
+            switch self {
+            case .debug: 0
+            case .info: 1
+            case .notice: 2
+            case .warning: 3
+            case .error: 4
+            case .critical: 5
+            case .alert: 6
+            case .emergency: 7
+            }
+        }
+
+        public static func < (lhs: Self, rhs: Self) -> Bool {
+            lhs.severity < rhs.severity
+        }
     }
 
     // MARK: - I/O

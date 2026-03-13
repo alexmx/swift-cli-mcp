@@ -425,6 +425,44 @@ struct HandlerTests {
         #expect(error["code"] as? Int == MCPConstants.invalidParams)
     }
 
+    // MARK: - Logging
+
+    @Test("logging/setLevel with valid level returns empty result")
+    func loggingSetLevel() async throws {
+        let response = await server.handleRequest(
+            request(#"{"jsonrpc":"2.0","id":30,"method":"logging/setLevel","params":{"level":"warning"}}"#)
+        )
+        let json = try decodeResponse(response)
+
+        #expect(json["result"] != nil)
+        #expect(json["error"] == nil)
+    }
+
+    @Test("logging/setLevel with invalid level returns error")
+    func loggingSetLevelInvalid() async throws {
+        let response = await server.handleRequest(
+            request(#"{"jsonrpc":"2.0","id":31,"method":"logging/setLevel","params":{"level":"verbose"}}"#)
+        )
+        let json = try decodeResponse(response)
+        let error = try #require(json["error"] as? [String: Any])
+
+        #expect(error["code"] as? Int == MCPConstants.invalidParams)
+        #expect((error["message"] as? String)?.contains("verbose") == true)
+    }
+
+    @Test("logging/setLevel with missing level returns error")
+    func loggingSetLevelMissing() async throws {
+        let response = await server.handleRequest(
+            request(#"{"jsonrpc":"2.0","id":32,"method":"logging/setLevel","params":{}}"#)
+        )
+        let json = try decodeResponse(response)
+        let error = try #require(json["error"] as? [String: Any])
+
+        #expect(error["code"] as? Int == MCPConstants.invalidParams)
+    }
+
+    // MARK: - Capabilities
+
     @Test("initialize includes prompts capability when prompts registered")
     func initializeWithPrompts() async throws {
         let response = await server.handleRequest(

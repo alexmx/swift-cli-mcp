@@ -53,6 +53,8 @@ extension MCPServer {
             return handlePromptsList(id: id)
         case "prompts/get":
             return await handlePromptsGet(id: id, params: request.params)
+        case "logging/setLevel":
+            return await handleLoggingSetLevel(id: id, params: request.params)
         case "ping":
             return JSONRPCResponse.success(id: id, result: EmptyObject())
         default:
@@ -249,6 +251,27 @@ extension MCPServer {
                 message: "Prompt error: \(String(describing: error))"
             )
         }
+    }
+
+    func handleLoggingSetLevel(id: JSONRPCId, params: AnyCodable?) async -> Data {
+        let levelStr: String
+        do {
+            levelStr = try extractParam(params, key: "level", id: id, errorMessage: "Missing level")
+        } catch {
+            return error.response
+        }
+
+        guard let level = MCPServer.LogLevel(rawValue: levelStr) else {
+            return JSONRPCResponse.error(
+                id: id,
+                code: MCPConstants.invalidParams,
+                message: "Invalid log level: \(levelStr)"
+            )
+        }
+
+        await logLevelStore.set(level)
+        log("Log level set to \(levelStr)")
+        return JSONRPCResponse.success(id: id, result: EmptyObject())
     }
 }
 
