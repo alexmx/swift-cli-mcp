@@ -12,6 +12,41 @@ private actor OutputWriter {
     }
 }
 
+/// Tracks in-flight request tasks for cancellation and concurrency limiting.
+actor TaskTracker {
+    private var tasks: [JSONRPCId: Task<Void, Never>] = [:]
+
+    func track(_ id: JSONRPCId, task: Task<Void, Never>) {
+        tasks[id] = task
+    }
+
+    func remove(_ id: JSONRPCId) {
+        tasks.removeValue(forKey: id)
+    }
+
+    func cancel(_ id: JSONRPCId, reason: String?) {
+        tasks[id]?.cancel()
+    }
+
+    var count: Int { tasks.count }
+
+    /// Block until in-flight count drops below `max` by awaiting the first tracked task.
+    func waitForSlot(max: Int) async {
+        if tasks.count >= max, let (id, task) = tasks.first {
+            await task.value
+            tasks.removeValue(forKey: id)
+        }
+    }
+
+    /// Wait for all in-flight tasks to complete.
+    func awaitAll() async {
+        for (_, task) in tasks {
+            await task.value
+        }
+        tasks.removeAll()
+    }
+}
+
 /// A reusable MCP server that communicates via JSON-RPC 2.0 over stdio.
 ///
 /// Usage:
@@ -40,6 +75,9 @@ public struct MCPServer: Sendable {
 
     /// Shared output writer for serialized stdout access
     private let writer = OutputWriter()
+
+    /// Tracks in-flight request tasks for cancellation support.
+    let taskTracker = TaskTracker()
 
     /// Maximum number of concurrent request handlers.
     private let maxConcurrentRequests = 16
@@ -81,52 +119,48 @@ public struct MCPServer: Sendable {
         let signalSources = setupSignalHandlers()
         defer { signalSources.forEach { $0.cancel() } }
 
-        await withTaskGroup(of: Void.self) { group in
-            var inFlight = 0
-
-            do {
-                for try await line in FileHandle.standardInput.bytes.lines {
-                    // Check for cancellation or shutdown signal
-                    if Task.isCancelled || Self.shouldShutdown.load(ordering: .relaxed) {
-                        log("Shutting down gracefully")
-                        break
-                    }
-
-                    guard !line.isEmpty else { continue }
-
-                    guard let data = line.data(using: .utf8),
-                          let request = JSONRPCParser.parse(data)
-                    else {
-                        await write(JSONRPCResponse.error(id: nil, code: MCPConstants.parseError, message: "Parse error"))
-                        continue
-                    }
-
-                    // Notifications have no id and expect no response
-                    if request.isNotification {
-                        handleNotification(request)
-                        continue
-                    }
-
-                    // Apply back-pressure: wait for a slot before dispatching
-                    if inFlight >= maxConcurrentRequests {
-                        await group.next()
-                        inFlight -= 1
-                    }
-
-                    // Dispatch request handling concurrently so slow tools
-                    // don't block other incoming requests
-                    group.addTask {
-                        let response = await self.handleRequest(request)
-                        await self.write(response)
-                    }
-                    inFlight += 1
+        do {
+            for try await line in FileHandle.standardInput.bytes.lines {
+                // Check for cancellation or shutdown signal
+                if Task.isCancelled || Self.shouldShutdown.load(ordering: .relaxed) {
+                    log("Shutting down gracefully")
+                    break
                 }
-            } catch {
-                log("stdin error: \(error)")
-            }
 
-            // Wait for all in-flight request handlers to finish
+                guard !line.isEmpty else { continue }
+
+                guard let data = line.data(using: .utf8),
+                      let request = JSONRPCParser.parse(data)
+                else {
+                    await write(JSONRPCResponse.error(id: nil, code: MCPConstants.parseError, message: "Parse error"))
+                    continue
+                }
+
+                // Notifications have no id and expect no response
+                if request.isNotification {
+                    await handleNotification(request)
+                    continue
+                }
+
+                // Apply back-pressure: wait for a slot before dispatching
+                await taskTracker.waitForSlot(max: maxConcurrentRequests)
+
+                // Dispatch request handling concurrently so slow tools
+                // don't block other incoming requests
+                let id = request.id!
+                let task = Task {
+                    let response = await self.handleRequest(request)
+                    await self.taskTracker.remove(id)
+                    await self.write(response)
+                }
+                await taskTracker.track(id, task: task)
+            }
+        } catch {
+            log("stdin error: \(error)")
         }
+
+        // Wait for all in-flight request handlers to finish
+        await taskTracker.awaitAll()
 
         log("stdin closed, shutting down")
     }

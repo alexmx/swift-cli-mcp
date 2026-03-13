@@ -64,10 +64,27 @@ extension MCPServer {
         }
     }
 
-    func handleNotification(_ request: JSONRPCRequest) {
+    func handleNotification(_ request: JSONRPCRequest) async {
         switch request.method {
         case "notifications/initialized":
             log("Client initialized")
+        case "notifications/cancelled":
+            if let paramsDict = request.params?.value as? [String: Any] {
+                let reason = paramsDict["reason"] as? String
+                // requestId can be int or string
+                let requestId: JSONRPCId?
+                if let intId = paramsDict["requestId"] as? Int {
+                    requestId = .int(intId)
+                } else if let strId = paramsDict["requestId"] as? String {
+                    requestId = .string(strId)
+                } else {
+                    requestId = nil
+                }
+                if let requestId {
+                    await taskTracker.cancel(requestId, reason: reason)
+                    log("Cancelled request \(requestId)\(reason.map { ": \($0)" } ?? "")")
+                }
+            }
         default:
             log("Unknown notification: \(request.method)")
         }
