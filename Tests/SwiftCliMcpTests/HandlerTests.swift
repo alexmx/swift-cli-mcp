@@ -62,7 +62,7 @@ private func makeServer() -> MCPServer {
             }
         ],
         resources: [
-            .resource(uri: "test://readme", name: "README", description: "A readme", mimeType: "text/plain") { _ in
+            .textResource(uri: "test://readme", name: "README", description: "A readme", mimeType: "text/plain") { _ in
                 "# README"
             },
 

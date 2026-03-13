@@ -41,7 +41,7 @@ let server = MCPServer(
         }
     ],
     resources: [
-        .resource(uri: "config://version", name: "Version", mimeType: "text/plain") { _ in
+        .textResource(uri: "config://version", name: "Version", mimeType: "text/plain") { _ in
             "1.0.0"
         }
     ],
@@ -148,28 +148,25 @@ Type mismatches and missing required fields are validated automatically.
 
 ## Resources
 
-Expose files, logs, or dynamic data. The text handler convenience eliminates URI duplication:
+Expose files, logs, or dynamic data:
 
 ```swift
 // Text resource — handler returns String, URI plumbed automatically
-.resource(uri: "file:///logs/app.log", name: "Application Log", mimeType: "text/plain") { _ in
+.textResource(uri: "file:///logs/app.log", name: "Application Log", mimeType: "text/plain") { _ in
     try String(contentsOfFile: "/var/log/app.log")
 }
 
-// Dynamic JSON resource
-.resource(uri: "system://stats", name: "System Stats", mimeType: "application/json") { _ in
-    """
-    {
-        "cpu": \(ProcessInfo.processInfo.processorCount),
-        "memory": \(ProcessInfo.processInfo.physicalMemory)
-    }
-    """
+// Binary resource — handler returns Data, URI plumbed automatically
+.blobResource(uri: "img://logo", name: "Logo", mimeType: "image/png") { _ in
+    try Data(contentsOf: URL(fileURLWithPath: "/assets/logo.png"))
 }
 
-// Full handler when you need binary data or custom MCPResourceContents
-.resource(uri: "img://logo", name: "Logo", mimeType: "image/png") {
-    let data = try Data(contentsOf: URL(fileURLWithPath: "/assets/logo.png"))
-    return MCPResourceContents(uri: "img://logo", blob: data, mimeType: "image/png")
+// Full handler when you need custom MCPResourceContents
+.resource(uri: "system://stats", name: "System Stats", mimeType: "application/json") {
+    let stats = """
+    {"cpu": \(ProcessInfo.processInfo.processorCount)}
+    """
+    return MCPResourceContents(uri: "system://stats", text: stats, mimeType: "application/json")
 }
 ```
 

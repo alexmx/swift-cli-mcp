@@ -16,7 +16,7 @@ struct ServerTests {
                 .tool(name: "tool1", description: "Tool 1") { (_: EmptyArgs) in .text("ok") }
             ],
             resources: [
-                .resource(uri: "test://r1", name: "R1") { _ in "data" }
+                .textResource(uri: "test://r1", name: "R1") { _ in "data" }
             ]
         )
 
@@ -63,8 +63,8 @@ struct ServerTests {
             name: "server",
             version: "1.0",
             resources: [
-                .resource(uri: "file:///a", name: "A") { _ in "a" },
-                .resource(uri: "file:///b", name: "B") { _ in "b" }
+                .textResource(uri: "file:///a", name: "A") { _ in "a" },
+                .textResource(uri: "file:///b", name: "B") { _ in "b" }
             ]
         )
 

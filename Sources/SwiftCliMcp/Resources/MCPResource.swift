@@ -76,7 +76,7 @@ public struct MCPResource: Sendable {
 
     // MARK: - Static Factories
 
-    /// Create a resource with a full handler.
+    /// Create a resource with a full handler returning `MCPResourceContents`.
     public static func resource(
         uri: String,
         name: String,
@@ -87,26 +87,26 @@ public struct MCPResource: Sendable {
         MCPResource(uri: uri, name: name, description: description, mimeType: mimeType, handler: handler)
     }
 
-    /// Create a text resource with a simplified handler.
-    public static func resource(
+    /// Create a text resource. The handler receives the URI and returns a String.
+    public static func textResource(
         uri: String,
         name: String,
         description: String? = nil,
         mimeType: String? = nil,
-        textHandler: @escaping @Sendable (_ uri: String) async throws -> String
+        handler: @escaping @Sendable (_ uri: String) async throws -> String
     ) -> MCPResource {
-        MCPResource(uri: uri, name: name, description: description, mimeType: mimeType, textHandler: textHandler)
+        MCPResource(uri: uri, name: name, description: description, mimeType: mimeType, textHandler: handler)
     }
 
-    /// Create a binary resource with a simplified handler.
-    public static func resource(
+    /// Create a binary resource. The handler receives the URI and returns Data.
+    public static func blobResource(
         uri: String,
         name: String,
         description: String? = nil,
         mimeType: String? = nil,
-        blobHandler: @escaping @Sendable (_ uri: String) async throws -> Data
+        handler: @escaping @Sendable (_ uri: String) async throws -> Data
     ) -> MCPResource {
-        MCPResource(uri: uri, name: name, description: description, mimeType: mimeType, blobHandler: blobHandler)
+        MCPResource(uri: uri, name: name, description: description, mimeType: mimeType, blobHandler: handler)
     }
 }
 

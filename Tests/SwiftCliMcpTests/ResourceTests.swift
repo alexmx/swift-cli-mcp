@@ -6,7 +6,7 @@ import Testing
 struct ResourceTests {
     @Test("Resource definition")
     func resourceDefinition() {
-        let resource = MCPResource.resource(
+        let resource = MCPResource.textResource(
             uri: "file:///test.txt",
             name: "Test File",
             description: "A test file",
@@ -24,7 +24,7 @@ struct ResourceTests {
 
     @Test("Resource definition with optional fields")
     func resourceDefinitionOptional() {
-        let resource = MCPResource.resource(
+        let resource = MCPResource.textResource(
             uri: "test://resource",
             name: "Resource"
         ) { _ in
@@ -71,7 +71,7 @@ struct ResourceTests {
 
     @Test("Resource handler execution")
     func resourceHandler() async throws {
-        let resource = MCPResource.resource(
+        let resource = MCPResource.textResource(
             uri: "test://dynamic",
             name: "Dynamic"
         ) { _ in

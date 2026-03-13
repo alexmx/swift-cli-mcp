@@ -51,7 +51,7 @@ let server = MCPServer(
         }
     ],
     resources: [
-        .resource(uri: "test://readme", name: "README", description: "Project README file", mimeType: "text/plain") { _ in
+        .textResource(uri: "test://readme", name: "README", description: "Project README file", mimeType: "text/plain") { _ in
             """
             # Test MCP Server
 
@@ -64,7 +64,7 @@ let server = MCPServer(
             """
         },
 
-        .resource(uri: "test://sysinfo", name: "System Info", description: "Current system information", mimeType: "application/json") { _ in
+        .textResource(uri: "test://sysinfo", name: "System Info", description: "Current system information", mimeType: "application/json") { _ in
             """
             {
                 "timestamp": "\(Date())",
