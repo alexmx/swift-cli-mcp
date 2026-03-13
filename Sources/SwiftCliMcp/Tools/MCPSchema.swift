@@ -54,7 +54,8 @@ public struct MCPSchema: Codable, Sendable {
     /// Merge two schemas (for composing shared + tool-specific properties).
     public func merging(_ other: MCPSchema) -> MCPSchema {
         let mergedProperties = (properties ?? [:]).merging(other.properties ?? [:]) { _, new in new }
-        let mergedRequired = (required ?? []) + (other.required ?? [])
+        var seen = Set<String>()
+        let mergedRequired = ((required ?? []) + (other.required ?? [])).filter { seen.insert($0).inserted }
         return MCPSchema(
             properties: mergedProperties,
             required: mergedRequired
